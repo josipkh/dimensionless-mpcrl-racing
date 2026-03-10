@@ -256,14 +256,14 @@ def create_cfg(
 if __name__ == "__main__":
     from race_car.controller import RaceCarController
     from race_car.env import RaceCarEnv
-    from race_car.utils.config import get_default_car_params
+    from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
     from race_car.utils.scaling import get_large_car_params
 
     dimensionless = False
     output_path=default_output_path(seed=0, tags=["baseline"])
     render_mode = "rgb_array"
 
-    car_params = get_default_car_params()
+    car_params = get_default_car_params_tracking()
     env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=render_mode)
     controller = RaceCarController(car_params=car_params, dimensionless=dimensionless)
 

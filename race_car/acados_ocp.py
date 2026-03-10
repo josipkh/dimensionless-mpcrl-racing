@@ -453,10 +453,11 @@ def compare_formulation(car_params: CarParams, solver: str):
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params
+    from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
     from race_car.utils.scaling import get_large_car_params
 
-    car_params = get_large_car_params()
+    car_params = get_default_car_params_tracking()
+
     # compare_formulation(car_params, solver="ipopt")
     test_closed_loop(car_params=car_params, dimensionless=True)
 

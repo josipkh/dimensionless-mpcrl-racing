@@ -127,8 +127,10 @@ class RaceCarEnv(gym.Env):
         else:
             term = False
 
-        # check for truncation (going out of bounds)
-        if not self.observation_space.contains(np.array(obs, dtype=np.float32)):
+        # check for truncation
+        out_of_bounds = not self.observation_space.contains(np.array(obs, dtype=np.float32))
+        timeout = self.total_time > 500 * self.dt
+        if out_of_bounds or timeout:
             trunc = True
             r -= 100.0
         else:

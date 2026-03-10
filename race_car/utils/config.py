@@ -180,6 +180,14 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     return tuple(params)
 
 
+def get_default_car_params_tracking() -> CarParams:
+    """Similar to the original example, but with more emphasis on centerline tracking."""
+    car_params = get_default_car_params()
+    car_params.q_diag_sqrt = np.sqrt([5, 1e3, 1e3, 1, 1e-3, 5e-3])
+    car_params.qe_diag_sqrt = car_params.q_diag_sqrt
+    return car_params
+
+
 if __name__ == "__main__":
     from pprint import pprint
     car_params = get_default_car_params()
