@@ -1,3 +1,18 @@
+########## user defined
+*jkh_test*
+cleanup_pyc.sh
+update_leap_c.sh
+
+output
+c_generated_code*
+codegen*
+*.json
+*.pdf
+*.csv
+*.mp4
+
+########## from the github template
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
