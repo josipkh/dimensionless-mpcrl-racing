@@ -147,8 +147,8 @@ class BaselineTrainer(Trainer[BaselineTrainerConfig, Any]):
 
         obs_batched = self.collate_fn([obs])
         default_param = self.controller.default_param(obs_batched)
-        # default_param = torch.from_numpy(default_param).to(self.device)
-        default_param = torch.from_numpy(default_param.copy()).to(self.device)  # TODO: remove this?
+        default_param = torch.from_numpy(default_param).to(self.device)
+        # default_param = torch.from_numpy(default_param.copy()).to(self.device)  # TODO: check this
         ctx, action = self.controller(obs_batched, default_param, ctx=state)        
         action = action.cpu().numpy()[0]
         return action, ctx, ctx.log
@@ -191,20 +191,6 @@ def create_cfg(
     cfg.trainer.val_report_score = "cum"
     cfg.trainer.ckpt_modus = ckpt_modus
 
-    if env == "hvac":
-        cfg.trainer.log.cumulative_metrics = [
-            "train/money_spent",
-            "train/energy_kwh",
-            "train/constraint_violation",
-        ]
-
-    if only_train:
-        cfg.trainer.train_steps = 1_000_000 if env == "pointmass" else 200_000
-        cfg.trainer.val_freq = 10_000 if env != "hvac" else 50_000
-    else:
-        cfg.trainer.train_steps = 1
-        cfg.trainer.val_freq = 1
-
     # ---- Section: cfg.trainer.log ----
     cfg.trainer.log.verbose = True
     cfg.trainer.log.interval = 1_000
@@ -217,49 +203,14 @@ def create_cfg(
     return cfg
 
 
-# def run_baseline(
-#     cfg: RunBaselineConfig,
-#     output_path: str | Path,
-#     device: str = "cpu",
-#     reuse_code_dir: Path | None = None,
-#     only_train: bool = False,
-# ) -> float:
-#     """Run the baseline.
-
-#     Args:
-#         cfg: The configuration for running the baseline.
-#         output_path: The path to save outputs to.
-#             If it already exists, the run will continue from the last checkpoint.
-#         device: The device to use.
-#         reuse_code_dir: The directory to reuse compiled code from, if any.
-#         only_train: Whether to run training episodes.
-#     """
-#     val_env = create_env(cfg.env, render_mode="rgb_array") if not only_train else None
-#     train_env = create_env(cfg.env) if only_train else None
-
-#     controller = None
-#     if cfg.policy_type == "controller":
-#         controller = create_controller(cfg.controller, reuse_code_dir)
-
-#     trainer = BaselineTrainer(
-#         cfg=cfg.trainer,
-#         val_env=val_env,
-#         output_path=output_path,
-#         device=device,
-#         policy_type=cfg.policy_type,
-#         controller=controller,
-#         train_env=train_env,
-#     )
-#     init_run(trainer, cfg, output_path)
-#     return trainer.run()
-
-
 if __name__ == "__main__":
     from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
     from race_car.utils.scaling import get_large_car_params
 
     dimensionless = False
-    output_path = default_output_path(seed=0, tags=["baseline"])
+    seed = 0
+
+    output_path = default_output_path(seed=seed, tags=["baseline", "racing"])
     render_mode = "rgb_array"
 
     car_params = get_default_car_params_tracking()
@@ -268,7 +219,7 @@ if __name__ == "__main__":
 
     cfg = RunBaselineConfig(env=env, controller=controller)
 
-    cfg.trainer.seed = 0
+    cfg.trainer.seed = seed
     cfg.trainer.train_start = 0
     cfg.trainer.val_num_rollouts = 1
     cfg.trainer.val_deterministic = True
@@ -300,77 +251,3 @@ if __name__ == "__main__":
     init_run(trainer, cfg, output_path)
 
     trainer.run()
-
-    # parser = ArgumentParser()
-    # parser.add_argument("--output_path", type=Path, default=None)
-    # parser.add_argument("--device", type=str, default="cpu")
-    # parser.add_argument("--seed", type=int, default=0)
-    # parser.add_argument("--env", type=str, default="cartpole")
-    # parser.add_argument("--controller", type=str, default=None)
-    # parser.add_argument(
-    #     "--policy-type",
-    #     type=str,
-    #     default="controller",
-    #     choices=["controller", "random"],
-    #     help="The type of policy to run.",
-    # )
-    # parser.add_argument(
-    #     "--only-train",
-    #     action="store_true",
-    #     help="Run training episodes over time (for comparison with RL methods). "
-    #     "Without this flag, validation episodes are run instead.",
-    # )
-    # parser.add_argument(
-    #     "-r",
-    #     "--reuse_code",
-    #     action="store_true",
-    #     help="Reuse compiled code. The first time this is run, it will compile the code.",
-    # )
-    # parser.add_argument("--reuse_code_dir", type=Path, default=None)
-    # parser.add_argument("--use-wandb", action="store_true")
-    # parser.add_argument("--wandb-entity", type=str, default=None)
-    # parser.add_argument("--wandb-project", type=str, default="leap-c")
-    # args = parser.parse_args()
-
-    # cfg = create_cfg(
-    #     args.env,
-    #     args.controller,
-    #     args.seed,
-    #     args.only_train,
-    #     policy_type=args.policy_type,
-    # )
-
-    # if args.use_wandb:
-    #     config_dict = asdict(cfg)
-    #     cfg.trainer.log.wandb_logger = True
-    #     cfg.trainer.log.wandb_init_kwargs = {
-    #         "entity": args.wandb_entity,
-    #         "project": args.wandb_project,
-    #         "name": default_name(
-    #             args.seed, tags=["baseline", args.policy_type, args.env, str(args.controller)]
-    #         ),
-    #         "config": config_dict,
-    #     }
-
-    # if args.output_path is None:
-    #     output_path = default_output_path(
-    #         seed=args.seed,
-    #         tags=["baseline", args.policy_type, args.env, str(args.controller)],
-    #     )
-    # else:
-    #     output_path = args.output_path
-
-    # if args.reuse_code and args.reuse_code_dir is None:
-    #     reuse_code_dir = default_controller_code_path()
-    # elif args.reuse_code_dir is not None:
-    #     reuse_code_dir = args.reuse_code_dir
-    # else:
-    #     reuse_code_dir = None
-
-    # run_baseline(
-    #     cfg=cfg,
-    #     output_path=output_path,
-    #     device=args.device,
-    #     reuse_code_dir=reuse_code_dir,
-    #     only_train=args.only_train,
-    # )

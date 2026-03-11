@@ -122,8 +122,9 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     """Create a list of parameters to be handled within acados"""
     from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
     # add the learnable cost weights and non-learnable progress reference
-    cost_min = 1e-8  # lower limit on the individual weights
-    cost_max = 1e+3  # upper limit on the individual weights
+    # TODO: check cost bounds for the dimensionless case
+    cost_min = 1e-9  # lower limit on the individual weights
+    cost_max = 1e+4  # upper limit on the individual weights
 
     # nondimensionalize the cost weights if needed
     if dimensionless:

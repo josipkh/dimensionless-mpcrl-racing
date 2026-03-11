@@ -29,21 +29,7 @@ class RaceCarEnv(gym.Env):
         self.dimensionless = dimensionless  # whether to use the dimensionless formulation
 
         self.nx = 4  # number of states
-        self.nu = 2  # number of inputs
-
-        if dimensionless:
-            # use agent instead of env parameters (allow for mismatches)
-            self.Ms, self.Ma, self.Mt = get_transformation_matrices(
-                mpc_car_params
-            )  # s(physical) = Ms * s(dimensionless)
-
-            # remove the control input rate from the variable transformation
-            # self.Ma = self.Ms[self.nx:, self.nx:]  # only inputs
-            # self.Ms = self.Ms[:self.nx, :self.nx]  # only states
-
-            self.Ms_inv = np.linalg.inv(self.Ms)
-            self.Ma_inv = np.linalg.inv(self.Ma)
-            self.Mt_inv = np.linalg.inv(self.Mt)
+        self.nu = 2  # number of inputs            
 
         # integrator for simulating the dynamics (always dimensional)
         self.integrator = export_acados_integrator(car_params=car_params, dimensionless=False)
@@ -57,10 +43,31 @@ class RaceCarEnv(gym.Env):
         act_lb = np.array([car_params.dD_min.item(), car_params.ddelta_min.item()], dtype=np.float32)
 
         if dimensionless:
+            # use agent instead of env parameters (allow for mismatches)
+            Ms, Ma, _ = get_transformation_matrices(
+                mpc_car_params
+            )  # s(physical) = Ms * s(dimensionless)
+
+            # remove the control input rate from the variable transformation
+            # self.Ma = self.Ms[self.nx:, self.nx:]  # only inputs
+            # self.Ms = self.Ms[:self.nx, :self.nx]  # only states
+
+            Ms_inv = np.linalg.inv(Ms)
+            Ma_inv = np.linalg.inv(Ma)
+
+            # scale the state and action bounds
             # obs_ub = self.Ms_inv @ obs_ub  # needed if the vehicle states are bounded or inputs dimensional
             # obs_lb = self.Ms_inv @ obs_lb  # needed if the vehicle states are bounded or inputs dimensional
-            act_ub = self.Ma_inv @ act_ub
-            act_lb = self.Ma_inv @ act_lb
+            act_ub = Ma_inv @ act_ub
+            act_lb = Ma_inv @ act_lb
+
+            # define helper functions
+            self.dim2nondim_s = lambda s: Ms_inv[:self.nx, :self.nx] @ s
+            self.nondim2dim_s = lambda s: Ms[:self.nx, :self.nx] @ s
+            self.dim2nondim_a = lambda a: Ma_inv @ a
+            self.nondim2dim_a = lambda a: Ma @ a
+
+        self.time_scale = get_transformation_matrices(mpc_car_params)[2]  # for scaling the time in the reward
 
         self.action_space = gym.spaces.Box(np.float32(act_lb), np.float32(act_ub))
         self.observation_space = gym.spaces.Box(np.float32(obs_lb), np.float32(obs_ub))
@@ -83,12 +90,7 @@ class RaceCarEnv(gym.Env):
         self.window = None
         self.clock = None
 
-        # helper functions for scaling
-        if dimensionless:
-            self.dim2nondim_s = lambda s: self.Ms_inv[:self.nx, :self.nx] @ s
-            self.nondim2dim_s = lambda s: self.Ms[:self.nx, :self.nx] @ s
-            self.dim2nondim_a = lambda a: self.Ma_inv @ a
-            self.nondim2dim_a = lambda a: self.Ma @ a
+        # helper functions for scaling            
 
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
@@ -106,7 +108,8 @@ class RaceCarEnv(gym.Env):
         # simulate one time step
         s_prev = self.s
         self.s = self.integrator.simulate(x=self.s, u=action)
-        self.state_log.append(self.s)  # type: ignore
+        if self.render_mode is not None:
+            self.state_log.append(self.s)  # save trajectory for plotting
         self.previous_action = action  # this is already dimensionless
         self.total_time += self.dt
 
@@ -118,10 +121,10 @@ class RaceCarEnv(gym.Env):
 
         # calculate the reward (TODO: check the reward/penalty formulation)
         # progress along the track (relative to car length)
-        r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
+        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
 
         # alternative
-        # r = -self.dt  # terminate in minimum time
+        r = -self.dt / self.time_scale  # terminate in minimum time
 
         # check for termination (reaching the end of the track)
         if self.s[0] > self.s_max:
@@ -163,7 +166,7 @@ class RaceCarEnv(gym.Env):
         # nondimensionalize if needed
         if self.dimensionless:
             self.s = self.dim2nondim_s(self.s)
-            self.previous_actions = self.dim2nondim_a(self.previous_action)
+            self.previous_action = self.dim2nondim_a(self.previous_action)
 
         self.reset_needed = False        
 
