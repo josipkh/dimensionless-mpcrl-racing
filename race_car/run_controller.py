@@ -23,6 +23,7 @@ from leap_c.torch.rl.buffer import ReplayBuffer
 from leap_c.torch.utils.seed import mk_seed
 from leap_c.trainer import Trainer, TrainerConfig
 from leap_c.utils.gym import seed_env, wrap_env
+
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 
@@ -254,13 +255,11 @@ def create_cfg(
 
 
 if __name__ == "__main__":
-    from race_car.controller import RaceCarController
-    from race_car.env import RaceCarEnv
     from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
     from race_car.utils.scaling import get_large_car_params
 
     dimensionless = False
-    output_path=default_output_path(seed=0, tags=["baseline"])
+    output_path = default_output_path(seed=0, tags=["baseline"])
     render_mode = "rgb_array"
 
     car_params = get_default_car_params_tracking()

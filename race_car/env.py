@@ -120,6 +120,9 @@ class RaceCarEnv(gym.Env):
         # progress along the track (relative to car length)
         r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
 
+        # alternative
+        # r = -self.dt  # terminate in minimum time
+
         # check for termination (reaching the end of the track)
         if self.s[0] > self.s_max:
             term = True

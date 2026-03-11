@@ -83,8 +83,8 @@ def get_default_car_params() -> CarParams:
         ]),
 
         qe_diag_sqrt=np.sqrt([
-            5e0,
-            1e2,
+            5e+0,
+            1e+2,
             1e-8,
             1e-8,
             1e-3,
@@ -122,8 +122,8 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     """Create a list of parameters to be handled within acados"""
     from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
     # add the learnable cost weights and non-learnable progress reference
-    cost_min = 1e-8      # lower limit on the individual weights
-    cost_max = 100.0    # upper limit on the individual weights
+    cost_min = 1e-8  # lower limit on the individual weights
+    cost_max = 1e+3  # upper limit on the individual weights
 
     # nondimensionalize the cost weights if needed
     if dimensionless:
