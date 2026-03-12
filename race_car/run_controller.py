@@ -1,204 +1,80 @@
-"""Main script to run baselines (controller or random) with default parameters.
+"""Main script to run controllers with default parameters."""
 
-By default, runs validation episodes. For building comparison with RL methods,
-use the `--only-train` flag to run training episodes instead. This will report
-stats similar to the RL training. This is especially useful for high variance
-environments (e.g. hvac), where a lot of validation episode are required to get
-a good estimate of performance.
-"""
-
-from argparse import ArgumentParser
-from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Generator, Literal
+from typing import Any, Generator
 
 import gymnasium as gym
 import torch
 from numpy import ndarray
 
 from leap_c.controller import CtxType, ParameterizedController
-from leap_c.examples import ExampleControllerName, ExampleEnvName, create_controller, create_env
-from leap_c.run import default_controller_code_path, default_name, default_output_path, init_run
+from leap_c.run import default_output_path, init_run
 from leap_c.torch.rl.buffer import ReplayBuffer
-from leap_c.torch.utils.seed import mk_seed
 from leap_c.trainer import Trainer, TrainerConfig
-from leap_c.utils.gym import seed_env, wrap_env
 
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 
 
-@dataclass
-class BaselineTrainerConfig(TrainerConfig):
-    """Configuration for running baseline experiments."""
-
-    pass
-
-
-@dataclass
-class RunBaselineConfig:
-    """Configuration for running baseline experiments.
-
-    Attributes:
-        env: The environment name.
-        controller: The controller name (used if policy_type is 'controller').
-        policy_type: The type of policy to run ('controller' or 'random').
-        trainer: The trainer configuration.
-    """
-
-    env: RaceCarEnv
-    controller: RaceCarController
-    policy_type: Literal["controller", "random"] = "controller"
-    trainer: BaselineTrainerConfig = field(default_factory=BaselineTrainerConfig)
-
-
-class BaselineTrainer(Trainer[BaselineTrainerConfig, Any]):
-    """A trainer that runs a baseline policy (controller or random).
-
-    Supports two modes:
-    - Validation only (default): Runs validation episodes only
-    - Training: Runs training episodes and reports stats similar to RL algorithms.
-
-    Attributes:
-        controller: The parameterized controller to use (if policy_type is 'controller').
-        collate_fn: The function used to collate observations and actions.
-        train_env: The training environment (None for validation-only mode).
-    """
-
-    train_env: gym.Env | None
+class BaselineTrainer(Trainer):
 
     def __init__(
         self,
-        cfg: BaselineTrainerConfig,
-        val_env: gym.Env | None,
+        cfg: TrainerConfig,
+        eval_env: gym.Env,
         output_path: str | Path,
         device: str,
-        policy_type: Literal["controller", "random"],
-        controller: ParameterizedController[CtxType] | None = None,
-        train_env: gym.Env | None = None,
+        controller: ParameterizedController[CtxType],
     ) -> None:
-        """Initializes the trainer.
-
-        Args:
-            cfg: The trainer configuration.
-            val_env: The validation environment.
-            output_path: The path to save outputs to.
-            device: The device to use.
-            policy_type: The type of policy to run.
-            controller: The parameterized controller to use (if policy_type is 'controller').
-            train_env: The training environment. If None, only validation is performed.
-        """
-        super().__init__(cfg, val_env, output_path, device)
-        self.policy_type = policy_type
+        
+        super().__init__(cfg, eval_env, output_path, device)
         self.controller = controller
-        self.train_env = wrap_env(train_env) if train_env is not None else None
 
-        if self.policy_type == "controller":
-            assert self.controller is not None
-            buffer = ReplayBuffer(1, device, collate_fn_map=controller.collate_fn_map)  # type: ignore
-            self.collate_fn = buffer.collate
-        else:
-            self.collate_fn = None
+        buffer = ReplayBuffer(1, device, collate_fn_map=controller.collate_fn_map)  # type: ignore
+        self.collate_fn = buffer.collate
 
     def train_loop(self) -> Generator[tuple[int, float], None, None]:
-        """Run training episodes, reporting stats similar to SAC training."""
-        if self.train_env is None:
-            # validation-only mode: just yield dummy values
-            while True:
-                yield 1, 0.0
-
-        is_terminated = is_truncated = True
-        policy_ctx = None
-        obs = None
-
+        # validation-only mode: just yield dummy values
         while True:
-            if is_terminated or is_truncated:
-                obs, _ = seed_env(self.train_env, mk_seed(self.rng), {"mode": "train"})
-                policy_ctx = None
-                is_terminated = is_truncated = False
-
-            if self.policy_type == "random":
-                action = self.train_env.action_space.sample()
-            else:
-                obs_batched = self.collate_fn([obs])
-                default_param = self.controller.default_param(obs_batched)
-                default_param_tensor = torch.from_numpy(default_param).to(self.device)
-                policy_ctx, action_tensor = self.controller(
-                    obs_batched, default_param_tensor, ctx=policy_ctx
-                )
-                action = action_tensor.cpu().numpy()[0]
-
-            obs_prime, reward, is_terminated, is_truncated, info = self.train_env.step(action)
-
-            if "episode" in info or "task" in info:
-                self.report_stats("train", info.get("episode", {}) | info.get("task", {}))
-
-            obs = obs_prime
-
-            yield 1, float(reward)
+            yield 1, 0.0
 
     def act(
         self, obs: ndarray, deterministic: bool = False, state: Any | None = None
     ) -> tuple[ndarray, Any, dict[str, float] | None]:
-        """Use the policy (controller or random)."""
-        if self.policy_type == "random":
-            # Use eval_env action space for validation
-            return self.eval_env.action_space.sample(), None, None
 
         obs_batched = self.collate_fn([obs])
         default_param = self.controller.default_param(obs_batched)
-        default_param = torch.from_numpy(default_param).to(self.device)
-        # default_param = torch.from_numpy(default_param.copy()).to(self.device)  # TODO: check this
+        # default_param = torch.from_numpy(default_param).to(self.device)
+        default_param = torch.from_numpy(default_param.copy()).to(self.device)  # TODO: check this
         ctx, action = self.controller(obs_batched, default_param, ctx=state)        
         action = action.cpu().numpy()[0]
         return action, ctx, ctx.log
 
 
-def create_cfg(
-    env: ExampleEnvName,
-    controller: ExampleControllerName | None,
-    seed: int,
-    only_train: bool = False,
-    ckpt_modus: Literal["best", "last", "all", "none"] = "none",
-    policy_type: Literal["controller", "random"] = "controller",
-) -> RunBaselineConfig:
-    """Return the default configuration for running baseline experiments.
+def create_cfg(seed: int) -> TrainerConfig:
 
-    Args:
-        env: The environment name.
-        controller: The controller name.
-        seed: The random seed.
-        only_train: Whether to run training episodes.
-        ckpt_modus: The checkpoint mode.
-        policy_type: The type of policy to run.
-    """
-    cfg = RunBaselineConfig()
-    cfg.env = env
-    cfg.policy_type = policy_type
-
-    if policy_type == "controller":
-        cfg.controller = controller if controller is not None else env
-    else:
-        cfg.controller = controller  # Can be None for random
+    cfg = TrainerConfig()
 
     # ---- Section: cfg.trainer ----
-    cfg.trainer.seed = seed
-    cfg.trainer.train_start = 0
-    cfg.trainer.val_num_rollouts = 20 if env != "hvac" else 100
-    cfg.trainer.val_deterministic = True
-    cfg.trainer.val_num_render_rollouts = 0
-    cfg.trainer.val_render_mode = "rgb_array"
-    cfg.trainer.val_report_score = "cum"
-    cfg.trainer.ckpt_modus = ckpt_modus
+    cfg.seed = seed
+    cfg.train_start = 0
+    cfg.val_num_rollouts = 1
+    cfg.val_deterministic = True
+    cfg.val_num_render_rollouts = 1
+    cfg.val_render_mode = render_mode
+    cfg.val_report_score = "cum"
+    cfg.ckpt_modus = "none"
+    cfg.train_steps = 0
+    cfg.val_freq = 1
 
-    # ---- Section: cfg.trainer.log ----
-    cfg.trainer.log.verbose = True
-    cfg.trainer.log.interval = 1_000
-    cfg.trainer.log.window = 10_000
-    cfg.trainer.log.csv_logger = True
-    cfg.trainer.log.tensorboard_logger = False
-    cfg.trainer.log.wandb_logger = False
-    cfg.trainer.log.wandb_init_kwargs = {}
+    # ---- Section: cfg.log ----
+    cfg.log.verbose = True
+    cfg.log.interval = 1
+    cfg.log.window = 1
+    cfg.log.csv_logger = True
+    cfg.log.tensorboard_logger = False
+    cfg.log.wandb_logger = False
+    cfg.log.wandb_init_kwargs = {}
 
     return cfg
 
@@ -207,45 +83,24 @@ if __name__ == "__main__":
     from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
     from race_car.utils.scaling import get_large_car_params
 
+    car_params = get_default_car_params_tracking()
     dimensionless = False
-    seed = 0
+    seed = 0    
 
     output_path = default_output_path(seed=seed, tags=["baseline", "racing"])
     render_mode = "rgb_array"
-
-    car_params = get_default_car_params_tracking()
+    
     env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=render_mode)
     controller = RaceCarController(car_params=car_params, dimensionless=dimensionless)
 
-    cfg = RunBaselineConfig(env=env, controller=controller)
-
-    cfg.trainer.seed = seed
-    cfg.trainer.train_start = 0
-    cfg.trainer.val_num_rollouts = 1
-    cfg.trainer.val_deterministic = True
-    cfg.trainer.val_num_render_rollouts = 1
-    cfg.trainer.val_render_mode = render_mode
-    cfg.trainer.val_report_score = "cum"
-    cfg.trainer.ckpt_modus = "none"
-    cfg.trainer.train_steps = 0
-    cfg.trainer.val_freq = 1
-
-    cfg.trainer.log.verbose = True
-    cfg.trainer.log.interval = 1
-    cfg.trainer.log.window = 1
-    cfg.trainer.log.csv_logger = True
-    cfg.trainer.log.tensorboard_logger = False
-    cfg.trainer.log.wandb_logger = False
-    cfg.trainer.log.wandb_init_kwargs = {}
-
+    cfg = create_cfg(seed=seed)
 
     trainer = BaselineTrainer(
-        cfg=cfg.trainer,
-        val_env=env,
-        output_path=output_path,
-        device="cpu",
-        policy_type="controller",
+        cfg=cfg,
+        eval_env=env,
         controller=controller,
+        output_path=output_path,
+        device="cpu",        
     )
 
     init_run(trainer, cfg, output_path)

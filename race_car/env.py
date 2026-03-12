@@ -67,7 +67,7 @@ class RaceCarEnv(gym.Env):
             self.dim2nondim_a = lambda a: Ma_inv @ a
             self.nondim2dim_a = lambda a: Ma @ a
 
-        self.time_scale = get_transformation_matrices(mpc_car_params)[2]  # for scaling the time in the reward
+        self.time_scale = get_transformation_matrices(mpc_car_params)[2].item()  # for scaling the time in the reward
 
         self.action_space = gym.spaces.Box(np.float32(act_lb), np.float32(act_ub))
         self.observation_space = gym.spaces.Box(np.float32(obs_lb), np.float32(obs_ub))
