@@ -20,7 +20,7 @@ def create_cfg(
     # ---- Section: cfg.trainer ----
     cfg.seed = seed
     cfg.train_steps = 50_000
-    cfg.train_start = 0
+    cfg.train_start = 2000 # 0
     cfg.val_freq = 10_000
     cfg.val_num_rollouts = 1
     cfg.val_deterministic = True
@@ -30,17 +30,17 @@ def create_cfg(
     cfg.ckpt_modus = ckpt_modus
     cfg.batch_size = 64
     cfg.buffer_size = 500_000
-    cfg.gamma = 0.99
+    cfg.gamma = 1.0  # 0.99
     cfg.tau = 0.005
     cfg.soft_update_freq = 1
     cfg.lr_q = 0.001
-    cfg.lr_pi = 0.001
+    cfg.lr_pi = 5e-5  # 1e-3
     cfg.lr_alpha = 0.001
-    cfg.init_alpha = 0.02
+    cfg.init_alpha = 0.15  # 0.02
     cfg.target_entropy = None
     cfg.entropy_reward_bonus = True
     cfg.num_critics = 2
-    cfg.update_freq = 4
+    cfg.update_freq = 1  # 4
 
     # ---- Section: cfg.log ----
     cfg.log.verbose = True
@@ -78,14 +78,14 @@ if __name__ == "__main__":
         get_large_car_params, get_large_car_params_tracking
     )
 
-    dimensionless = True
+    car_params = get_large_car_params_tracking()
+    dimensionless = False
     seed = 0
     use_wandb = False
 
     output_path = default_output_path(seed, tags=["sac_zop", "racing"])
     cfg = create_cfg(seed=seed)
 
-    car_params = get_default_car_params()
     train_env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=None)
     val_env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
     controller = RaceCarController(car_params=car_params, dimensionless=dimensionless)

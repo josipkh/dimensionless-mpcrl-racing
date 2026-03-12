@@ -85,8 +85,8 @@ if __name__ == "__main__":
         get_large_car_params, get_large_car_params_tracking
     )
 
-    car_params = get_large_car_params_tracking()
-    dimensionless = True
+    car_params = get_default_car_params_tracking()
+    dimensionless = False
     seed = 0    
 
     output_path = default_output_path(seed=seed, tags=["baseline", "racing"])
