@@ -242,7 +242,7 @@ def calculate_acc(x, car_params):
 
 
 if __name__ == "__main__":
-    from race_car.utils.scaling import get_large_car_params
+    from race_car.utils.config import get_large_car_params
 
     car_params = get_default_car_params()
     car_params_sim = get_large_car_params()

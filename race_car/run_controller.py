@@ -80,11 +80,13 @@ def create_cfg(seed: int) -> TrainerConfig:
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
-    from race_car.utils.scaling import get_large_car_params
+    from race_car.utils.config import (
+        get_default_car_params, get_default_car_params_tracking,
+        get_large_car_params, get_large_car_params_tracking
+    )
 
-    car_params = get_default_car_params_tracking()
-    dimensionless = False
+    car_params = get_large_car_params_tracking()
+    dimensionless = True
     seed = 0    
 
     output_path = default_output_path(seed=seed, tags=["baseline", "racing"])

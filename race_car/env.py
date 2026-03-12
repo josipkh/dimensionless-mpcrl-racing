@@ -42,6 +42,12 @@ class RaceCarEnv(gym.Env):
         act_ub = np.array([car_params.dD_max.item(), car_params.ddelta_max.item()], dtype=np.float32)
         act_lb = np.array([car_params.dD_min.item(), car_params.ddelta_min.item()], dtype=np.float32)
 
+        # add a 5% margin to the bounds (prevents episode truncation due to numerical issues)
+        obs_ub *= 1.05
+        obs_lb *= 1.05
+        act_ub *= 1.05
+        act_lb *= 1.05
+
         if dimensionless:
             # use agent instead of env parameters (allow for mismatches)
             Ms, Ma, _ = get_transformation_matrices(
@@ -90,8 +96,6 @@ class RaceCarEnv(gym.Env):
         self.window = None
         self.clock = None
 
-        # helper functions for scaling            
-
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """Execute the dynamics of the race car."""
@@ -120,11 +124,10 @@ class RaceCarEnv(gym.Env):
         obs = np.concatenate([obs, action])
 
         # calculate the reward (TODO: check the reward/penalty formulation)
-        # progress along the track (relative to car length)
-        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
-
-        # alternative
         r = -self.dt / self.time_scale  # terminate in minimum time
+
+        # alternative: progress along the track (relative to car length)
+        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()        
 
         # check for termination (reaching the end of the track)
         if self.s[0] > self.s_max:
@@ -133,7 +136,7 @@ class RaceCarEnv(gym.Env):
         else:
             term = False
 
-        # check for truncation
+        # check for truncation (out of bounds or timeout)
         out_of_bounds = not self.observation_space.contains(np.array(obs, dtype=np.float32))
         timeout = self.total_time > 500 * self.dt
         if out_of_bounds or timeout:
@@ -267,7 +270,7 @@ class RaceCarEnv(gym.Env):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    from race_car.utils.scaling import get_large_car_params
+    from race_car.utils.config import get_large_car_params
     dimensionless = True
 
     # create envs for the default and similar parameters

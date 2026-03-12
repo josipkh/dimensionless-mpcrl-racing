@@ -73,10 +73,12 @@ def create_cfg(
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params, get_default_car_params_tracking
-    from race_car.utils.scaling import get_large_car_params
+    from race_car.utils.config import (
+        get_default_car_params, get_default_car_params_tracking,
+        get_large_car_params, get_large_car_params_tracking
+    )
 
-    dimensionless = False
+    dimensionless = True
     seed = 0
     use_wandb = False
 

@@ -111,16 +111,6 @@ def get_pi_groups(car_params: CarParams) -> tuple[float, float]:
     return np.array([pi_1, pi_2, pi_3, pi_4, pi_5])
 
 
-def get_large_car_params() -> CarParams:
-    """Returns the parameters of a specific larger car."""
-    return get_similar_car_params(
-        reference_params=get_default_car_params(),
-        new_length=4.0,
-        new_mass=1500.0,
-        new_cr3=0.4,  # chosen approximately, top speed of small car is 2.5 m/s
-    )
-
-
 def compare_params(car1: CarParams, car2: CarParams):
     """Print the parameters of two cars side by side for comparison."""
     # Define parameter groups by field names
@@ -149,6 +139,7 @@ def compare_params(car1: CarParams, car2: CarParams):
 
 if __name__ == "__main__":
     from race_car.utils.track import get_track
+    from race_car.utils.config import get_large_car_params
     
     car_params_ref = get_default_car_params()
     car_params_sim = get_large_car_params()

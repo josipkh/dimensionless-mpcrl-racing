@@ -48,28 +48,9 @@ class RaceCarController(AcadosPlanner):
         s_current = np.array([obs[i, 0].cpu().numpy() for i in range(batch_size)])
         sref = s_current + self.s_offset
 
-        # s_current = obs[:, 0:1]  # shape: (batch_size, 1)
-
-        # horizon_steps = torch.linspace(0, 1, self.N + 1, device=obs.device)
-        # sref = s_current.unsqueeze(1) + horizon_steps.view(1, -1, 1) * self.sref_N
-
-        # p_stagewise = self.param_manager.combine_non_learnable_parameter_values(
-        #     batch_size=obs.shape[0]
-        # )
-
-        # NOTE: In case we want to pass the data of exogenous influences to the controller,
-        # we can do it here
         p_stagewise = self.param_manager.combine_non_learnable_parameter_values(
             sref=sref.reshape(batch_size, -1, 1),
         )
-
-        # set the numerical values for yref (different for each of the batched solvers)
-        # for i in range(batch_size):
-        #     for k in range(1, self.N):
-        #         yref = np.array([sref[i, k].detach().cpu().numpy().item(), 0, 0, 0, 0, 0, 0, 0])
-        #         self.diff_mpc.diff_mpc_fun.forward_batch_solver.ocp_solvers[i].set(k, "yref", yref)
-        #     yref_N = np.array([sref[i, self.N+1].detach().cpu().numpy().item(), 0, 0, 0, 0, 0])
-        #     self.diff_mpc.diff_mpc_fun.forward_batch_solver.ocp_solvers[i].set(self.N, "yref", yref_N)
 
         ctx, u0, _, _, _ = self.diff_mpc(
             obs, p_global=param, p_stagewise=p_stagewise, ctx=ctx
@@ -116,55 +97,9 @@ def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_mana
     ocp.cost.yref = yref
     ocp.cost.yref_e = yref[:-2]  # control inputs are not included in the terminal stage
 
-    """
-    # translate the cost to EXTERNAL, but keep the GN hessian approximation
-    ocp.cost.cost_type_0 = ocp.cost.cost_type = ocp.cost.cost_type_e = "EXTERNAL"
-    ocp.model.cost_expr_ext_cost_0 = ocp._AcadosOcp__translate_nls_cost_to_external_cost(ocp.model.cost_y_expr_0, ocp.cost.yref_0, ocp.cost.W_0)
-    ocp.model.cost_expr_ext_cost = ocp._AcadosOcp__translate_nls_cost_to_external_cost(ocp.model.cost_y_expr, ocp.cost.yref, ocp.cost.W)
-    ocp.model.cost_expr_ext_cost_e = ocp._AcadosOcp__translate_nls_cost_to_external_cost(ocp.model.cost_y_expr_e, ocp.cost.yref_e, ocp.cost.W_e)
-    ocp.model.cost_expr_ext_cost_custom_hess_0 = ocp._AcadosOcp__get_gn_hessian_expression_from_nls_cost(
-        ocp.model.cost_y_expr_0, 
-        ocp.cost.yref_0, 
-        ocp.cost.W_0,
-        ocp.model.x,
-        ocp.model.u)
-    ocp.model.cost_expr_ext_cost_custom_hess = ocp._AcadosOcp__get_gn_hessian_expression_from_nls_cost(
-        ocp.model.cost_y_expr,
-        ocp.cost.yref,
-        ocp.cost.W,
-        ocp.model.x,
-        ocp.model.u)
-    ocp.model.cost_expr_ext_cost_custom_hess_e = ocp._AcadosOcp__get_gn_hessian_expression_from_nls_cost(
-        ocp.model.cost_y_expr_e,
-        ocp.cost.yref_e,
-        ocp.cost.W_e,
-        ocp.model.x,
-        [])
-    
-    # remove the NONLINEAR_LS fields
-    ocp.cost.W_0 = ocp.cost.W = ocp.cost.W_e = np.zeros((0,0))
-    ocp.model.cost_y_expr_0 = ocp.model.cost_y_expr = ocp.model.cost_y_expr_e = []
-    ocp.cost.yref_0 = ocp.cost.yref = ocp.cost.yref_e = np.zeros((0,))
-    """
-
     param_manager.assign_to_ocp(ocp)
 
     return ocp
-
-
-# def translate_nls_cost_to_external_cost(y_expr, yref, W):
-#     # https://github.com/acados/acados/blob/4b1eb73f1f84ecf4fb19feaf5a672a58a2c3c35a/interfaces/acados_template/acados_template/acados_ocp.py#L1925
-#     res = y_expr - yref
-#     return 0.5 * (res.T @ W @ res)
-
-
-# def get_gn_hessian_expression_from_nls_cost(y_expr, yref, W, x, u):
-#     # https://github.com/acados/acados/blob/4b1eb73f1f84ecf4fb19feaf5a672a58a2c3c35a/interfaces/acados_template/acados_template/acados_ocp.py#L1930
-#     res = y_expr - yref
-#     ux = ca.vertcat(u, x)
-#     inner_jac = ca.jacobian(res, ux)
-#     gn_hess = inner_jac.T @ W @ inner_jac
-#     return gn_hess
 
 
 if __name__ == "__main__":

@@ -167,13 +167,7 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         ),
         AcadosParameter(
             "sref",
-            default=np.array([0.0]),
-            # default=0.0*np.ones(car_params.N.item()+1),
-            # space=gym.spaces.Box(
-            #     low=np.array([0.0]),
-            #     high=np.array([100.0]),
-            #     dtype=np.float64,
-            # ),
+            default=np.array([0.0]),  # scalar here, will be changed along the horizon at runtime
             interface="non-learnable",
             end_stages=list(range(car_params.N.item() + 1)),
         )
@@ -189,10 +183,36 @@ def get_default_car_params_tracking() -> CarParams:
     return car_params
 
 
+def get_large_car_params() -> CarParams:
+    """Returns the parameters of a specific larger car."""
+    from race_car.utils.scaling import get_similar_car_params
+    return get_similar_car_params(
+        reference_params=get_default_car_params(),
+        new_length=4.0,
+        new_mass=1500.0,
+        new_cr3=0.4,  # chosen approximately, top speed of small car is 2.5 m/s
+    )
+
+
+def get_large_car_params_tracking() -> CarParams:
+    """Similar to the large car params, but with more emphasis on centerline tracking."""
+    from race_car.utils.scaling import get_similar_car_params
+    default_car_params = get_default_car_params_tracking()
+    large_car_params = get_similar_car_params(
+        reference_params=default_car_params,
+        new_length=4.0,
+        new_mass=1500.0,
+        new_cr3=0.4,  # chosen approximately, top speed of small car is 2.5 m/s
+    )
+    return large_car_params
+
+
 if __name__ == "__main__":
     from pprint import pprint
     car_params = get_default_car_params()
     pprint(car_params)
+    get_large_car_params()
+    get_large_car_params_tracking()
     print("-"*50)
     pprint(create_acados_params(car_params=car_params, dimensionless=True))
     print("ok")
