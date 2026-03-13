@@ -124,13 +124,16 @@ class RaceCarEnv(gym.Env):
         obs = np.concatenate([obs, action])
 
         # calculate the reward (TODO: check the reward/penalty formulation)
+        # reward speed in the right direction
+        # r = s_prev[3] * np.cos(s_prev[2])  # velocity * cos(heading error)
+
         # progress per time step (dimensionless)
-        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item() * self.time_scale / self.dt
+        r = (self.s[0] - s_prev[0]) / self.car_params.l.item() * self.time_scale / self.dt
 
-        # alternative: terminate in minimum time
-        r = -self.dt / self.time_scale
+        # terminate in minimum time
+        # r = -self.dt / self.time_scale
 
-        # alternative: progress along the track (relative to car length)
+        # progress along the track (relative to car length)
         # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
 
         # check for termination (reaching the end of the track)

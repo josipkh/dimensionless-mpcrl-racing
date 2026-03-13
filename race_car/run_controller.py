@@ -85,7 +85,7 @@ if __name__ == "__main__":
         get_large_car_params, get_large_car_params_tracking
     )
 
-    car_params = get_default_car_params_tracking()
+    car_params = get_default_car_params()
     dimensionless = False
     seed = 0    
 
