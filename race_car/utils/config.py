@@ -21,10 +21,10 @@ class CarParams:
     cr2: np.ndarray       # [kg/m]
     cr3: np.ndarray       # [s/m]
 
-    # Cost weight matrices, defined by the square roots of their diagonal entries
-    q_diag_sqrt: np.ndarray     # stage cost, state residuals
-    r_diag_sqrt: np.ndarray     # stage cost, input residuals
-    qe_diag_sqrt: np.ndarray    # terminal cost, state residuals
+    # Cost weight matrices, defined by the (natural) logarithm of their diagonal entries
+    q_diag_log: np.ndarray     # stage cost, state residuals
+    r_diag_log: np.ndarray     # stage cost, input residuals
+    qe_diag_log: np.ndarray    # terminal cost, state residuals
 
     # Slack cost weights
     slack_n_linear: np.ndarray          # linear cost on the position constraint [1/m]
@@ -68,7 +68,7 @@ def get_default_car_params() -> CarParams:
         cr2=np.array([0.006]),  # see also Table I here: https://cdn.syscop.de/publications/Verschueren2016b.pdf
         cr3=np.array([5.0]),
 
-        q_diag_sqrt=np.sqrt([
+        q_diag_log=np.log([
             1e-1,
             1e-8,
             1e-8,
@@ -77,12 +77,12 @@ def get_default_car_params() -> CarParams:
             5e-3,
         ]),
 
-        r_diag_sqrt=np.sqrt([
+        r_diag_log=np.log([
             1e-3,
             5e-3,
         ]),
 
-        qe_diag_sqrt=np.sqrt([
+        qe_diag_log=np.log([
             5e+0,
             1e+2,
             1e-8,
@@ -124,44 +124,44 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     # add the learnable cost weights and non-learnable progress reference
     # TODO: check cost bounds for the dimensionless case
     cost_min = 1e-12  # lower limit on the individual weights
-    cost_max = 1e+6  # upper limit on the individual weights
+    cost_max = 1e+06  # upper limit on the individual weights
 
     # nondimensionalize the cost weights if needed
     if dimensionless:
         Q, R, Qe = get_cost_matrices(car_params)
         Mx, Mu, _ = get_transformation_matrices(car_params)
         M = Mx.T @ Q @ Mx
-        q_diag_sqrt_dimensionless = np.sqrt(M.diagonal())
+        q_diag_log_dimensionless = np.log(M.diagonal())
         M = Mu.T @ R @ Mu
-        r_diag_sqrt_dimensionless = np.sqrt(M.diagonal())
+        r_diag_log_dimensionless = np.log(M.diagonal())
         M = Mx.T @ Qe @ Mx
-        qe_diag_sqrt_dimensionless = np.sqrt(M.diagonal())
+        qe_diag_log_dimensionless = np.log(M.diagonal())
 
     params = [
         AcadosParameter(
-            name="q_diag_sqrt",
-            default=car_params.q_diag_sqrt if not dimensionless else q_diag_sqrt_dimensionless,
+            name="q_diag_log",
+            default=car_params.q_diag_log if not dimensionless else q_diag_log_dimensionless,
             space=gym.spaces.Box(
-                low=np.sqrt(cost_min * np.ones_like(car_params.q_diag_sqrt)),
-                high=np.sqrt(cost_max * np.ones_like(car_params.q_diag_sqrt)),
+                low=np.log(cost_min * np.ones_like(car_params.q_diag_log)),
+                high=np.log(cost_max * np.ones_like(car_params.q_diag_log)),
                 dtype=np.float64),
             interface="learnable",
         ),
         AcadosParameter(
-            name="r_diag_sqrt",
-            default=car_params.r_diag_sqrt if not dimensionless else r_diag_sqrt_dimensionless,
+            name="r_diag_log",
+            default=car_params.r_diag_log if not dimensionless else r_diag_log_dimensionless,
             space=gym.spaces.Box(
-                low=np.sqrt(cost_min * np.ones_like(car_params.r_diag_sqrt)),
-                high=np.sqrt(cost_max * np.ones_like(car_params.r_diag_sqrt)),
+                low=np.log(cost_min * np.ones_like(car_params.r_diag_log)),
+                high=np.log(cost_max * np.ones_like(car_params.r_diag_log)),
                 dtype=np.float64),
-            interface="learnable",
+            interface="fix",  # tuning only the state cost weights is enough
         ),
         AcadosParameter(
-            name="qe_diag_sqrt",
-            default=car_params.qe_diag_sqrt if not dimensionless else qe_diag_sqrt_dimensionless,
+            name="qe_diag_log",
+            default=car_params.qe_diag_log if not dimensionless else qe_diag_log_dimensionless,
             space=gym.spaces.Box(
-                low=np.sqrt(cost_min * np.ones_like(car_params.qe_diag_sqrt)),
-                high=np.sqrt(cost_max * np.ones_like(car_params.qe_diag_sqrt)),
+                low=np.log(cost_min * np.ones_like(car_params.qe_diag_log)),
+                high=np.log(cost_max * np.ones_like(car_params.qe_diag_log)),
                 dtype=np.float64),
             interface="learnable",
         ),
@@ -178,8 +178,8 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
 def get_default_car_params_tracking() -> CarParams:
     """Similar to the original example, but with more emphasis on centerline tracking."""
     car_params = get_default_car_params()
-    car_params.q_diag_sqrt = np.sqrt([5, 1e3, 1e3, 1, 1e-3, 5e-3])
-    car_params.qe_diag_sqrt = car_params.q_diag_sqrt
+    car_params.q_diag_log = np.log([5, 1e3, 1e3, 1, 1e-3, 5e-3])
+    car_params.qe_diag_log = car_params.q_diag_log
     return car_params
 
 

@@ -137,6 +137,7 @@ class RaceCarEnv(gym.Env):
         # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
 
         # check for termination (reaching the end of the track)
+        # TODO: add total race time info
         if self.s[0] > self.s_max:
             term = True
         else:

@@ -8,9 +8,9 @@ from race_car.utils.config import CarParams, get_default_car_params
 
 def get_cost_matrices(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Returns the cost matrices Q, R and Q_e for the given race car."""
-    Q = np.diag(car_params.q_diag_sqrt**2)
-    R = np.diag(car_params.r_diag_sqrt**2)
-    Q_e = np.diag(car_params.qe_diag_sqrt**2)
+    Q = np.diag(np.exp(car_params.q_diag_log))
+    R = np.diag(np.exp(car_params.r_diag_log))
+    Q_e = np.diag(np.exp(car_params.qe_diag_log))
     return Q, R, Q_e
 
 
@@ -62,9 +62,9 @@ def get_similar_car_params(
     M = Mu @ np.linalg.inv(mu)
     r_diag = (M.T @ R @ M).diagonal()
 
-    new_params.q_diag_sqrt = np.sqrt(q_diag)
-    new_params.r_diag_sqrt = np.sqrt(r_diag)
-    new_params.qe_diag_sqrt = np.sqrt(qe_diag)
+    new_params.q_diag_log = np.log(q_diag)
+    new_params.r_diag_log = np.log(r_diag)
+    new_params.qe_diag_log = np.log(qe_diag)
 
     # match the constraints
     # D_max, D_min, delta_max, delta_min are not changed (they are dimensionless)
