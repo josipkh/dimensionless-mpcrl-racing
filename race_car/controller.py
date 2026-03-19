@@ -83,9 +83,9 @@ def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_mana
     qe_diag_log = param_manager.get("qe_diag_log")
 
     # set the NONLINEAR_LS cost
-    ocp.cost.W_0 = ca.diag(np.exp(r_diag_log))
-    ocp.cost.W = ca.diag(ca.vertcat(q_diag_log, r_diag_log).exp())    
-    ocp.cost.W_e = ca.diag(qe_diag_log.exp())
+    ocp.cost.W_0 = ca.diag(10 ** (r_diag_log))
+    ocp.cost.W = ca.diag(10 ** ca.vertcat(q_diag_log, r_diag_log))    
+    ocp.cost.W_e = ca.diag(10 ** qe_diag_log)
 
     sref = param_manager.get("sref")
     yref = ca.vertcat(sref, np.zeros(7))
