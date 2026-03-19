@@ -78,14 +78,16 @@ def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_mana
     ocp.solver_options.integrator_type = "DISCRETE"
 
     # adapt the cost to use AcadosParameters
-    q_diag_log = param_manager.get("q_diag_log")
+    qx_diag_log = param_manager.get("qx_diag_log")
+    qu_diag_log = param_manager.get("qu_diag_log")
     r_diag_log = param_manager.get("r_diag_log")
-    qe_diag_log = param_manager.get("qe_diag_log")
+    qex_diag_log = param_manager.get("qex_diag_log")
+    qeu_diag_log = param_manager.get("qeu_diag_log")
 
     # set the NONLINEAR_LS cost
     ocp.cost.W_0 = ca.diag(10 ** (r_diag_log))
-    ocp.cost.W = ca.diag(10 ** ca.vertcat(q_diag_log, r_diag_log))    
-    ocp.cost.W_e = ca.diag(10 ** qe_diag_log)
+    ocp.cost.W = ca.diag(10 ** ca.vertcat(qx_diag_log, qu_diag_log, r_diag_log))
+    ocp.cost.W_e = ca.diag(10 ** ca.vertcat(qex_diag_log, qeu_diag_log))
 
     sref = param_manager.get("sref")
     yref = ca.vertcat(sref, np.zeros(7))

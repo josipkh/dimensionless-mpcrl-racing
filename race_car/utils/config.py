@@ -124,6 +124,7 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     # add the learnable cost weights and non-learnable progress reference
     cost_min = 1e-12  # lower limit on the individual weights
     cost_max = 1e+06  # upper limit on the individual weights
+    nx = 4  # original (non-extended) state dimension
 
     # nondimensionalize the cost weights if needed
     if dimensionless:
@@ -138,31 +139,37 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
 
     params = [
         AcadosParameter(
-            name="q_diag_log",
-            default=car_params.q_diag_log if not dimensionless else q_diag_log_dimensionless,
+            name="qx_diag_log",
+            default=car_params.q_diag_log[:nx] if not dimensionless else q_diag_log_dimensionless[:nx],
             space=gym.spaces.Box(
-                low=np.log10(cost_min * np.ones_like(car_params.q_diag_log)),
-                high=np.log10(cost_max * np.ones_like(car_params.q_diag_log)),
+                low=np.log10(cost_min * np.ones_like(car_params.q_diag_log[:nx])),
+                high=np.log10(cost_max * np.ones_like(car_params.q_diag_log[:nx])),
                 dtype=np.float64),
             interface="learnable",
+        ),
+        AcadosParameter(
+            name="qu_diag_log",  # for penalizing control inputs in the extended state
+            default=car_params.q_diag_log[nx:] if not dimensionless else q_diag_log_dimensionless[nx:],
+            interface="fix",  # tuning only the state cost weights is enough
         ),
         AcadosParameter(
             name="r_diag_log",
             default=car_params.r_diag_log if not dimensionless else r_diag_log_dimensionless,
-            space=gym.spaces.Box(
-                low=np.log10(cost_min * np.ones_like(car_params.r_diag_log)),
-                high=np.log10(cost_max * np.ones_like(car_params.r_diag_log)),
-                dtype=np.float64),
             interface="fix",  # tuning only the state cost weights is enough
         ),
         AcadosParameter(
-            name="qe_diag_log",
-            default=car_params.qe_diag_log if not dimensionless else qe_diag_log_dimensionless,
+            name="qex_diag_log",
+            default=car_params.qe_diag_log[:nx] if not dimensionless else qe_diag_log_dimensionless[:nx],
             space=gym.spaces.Box(
-                low=np.log10(cost_min * np.ones_like(car_params.qe_diag_log)),
-                high=np.log10(cost_max * np.ones_like(car_params.qe_diag_log)),
+                low=np.log10(cost_min * np.ones_like(car_params.qe_diag_log[:nx])),
+                high=np.log10(cost_max * np.ones_like(car_params.qe_diag_log[:nx])),
                 dtype=np.float64),
             interface="learnable",
+        ),
+        AcadosParameter(
+            name="qeu_diag_log",  # for penalizing control inputs in the extended state
+            default=car_params.qe_diag_log[nx:] if not dimensionless else qe_diag_log_dimensionless[nx:],
+            interface="fix",  # tuning only the state cost weights is enough
         ),
         AcadosParameter(
             "sref",
@@ -213,5 +220,5 @@ if __name__ == "__main__":
     get_large_car_params()
     get_large_car_params_tracking()
     print("-"*50)
-    pprint(create_acados_params(car_params=car_params, dimensionless=True))
+    pprint(create_acados_params(car_params=car_params, dimensionless=False))
     print("ok")
