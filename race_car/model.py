@@ -156,14 +156,16 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
 
     # assign a random directory to prevent overwriting
     export_directory = str(Path(mkdtemp()))
+    acados_sim.code_gen_opts.code_export_directory = os.path.join(export_directory, "codegen")
+    json_file = os.path.join(export_directory, "sim_model.json")
     # export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))
-    acados_sim.code_gen_opts.code_export_directory = export_directory
+    # json_file = os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")    
     print("Setting up acados integrator...")
 
     acados_sim_solver = AcadosSimSolver(
         acados_sim=acados_sim, 
         verbose=False,
-        json_file=os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
+        json_file=json_file,
     )
     
     # schedule folder deletion after the program finishes
