@@ -128,7 +128,10 @@ class RaceCarEnv(gym.Env):
         # r = s_prev[3] * np.cos(s_prev[2])  # velocity * cos(heading error)
 
         # progress per time step (dimensionless)
-        r = (self.s[0] - s_prev[0]) / self.car_params.l.item() * self.time_scale / self.dt
+        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item() * self.time_scale / self.dt
+
+        # combination of relative progress and time
+        r = self.s[0] / self.s_max - 50 * self.dt / self.time_scale
 
         # terminate in minimum time
         # r = -self.dt / self.time_scale
