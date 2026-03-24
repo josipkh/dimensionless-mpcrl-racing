@@ -33,7 +33,7 @@ class RaceCarController(AcadosPlanner):
         print("Setting up acados MPC...")
         diff_mpc = AcadosDiffMpcTorch(
             ocp=self.ocp,
-            export_directory=self.ocp.code_gen_opts.code_export_directory,
+            # export_directory=self.ocp.code_gen_opts.code_export_directory,  # don't specify this to avoid issues with code reuse
             verbose=False
         )
 

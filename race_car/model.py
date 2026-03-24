@@ -1,10 +1,13 @@
 """Defines the dynamics models for use in the OCP and the simulation."""
 
 import os
+from pathlib import Path
+from tempfile import mkdtemp
 
 import casadi as ca
 import numpy as np
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
+from leap_c.ocp.acados.utils.delete_directory_hook import DeleteDirectoryHook
 
 from race_car.utils.config import CarParams
 from race_car.utils.scaling import get_transformation_matrices
@@ -150,7 +153,11 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
     acados_sim.solver_options.integrator_type = "ERK"
     acados_sim.solver_options.num_stages = 4
     acados_sim.solver_options.num_steps = 1
-    acados_sim.code_gen_opts.code_export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))  # prevent overwriting
+
+    # assign a random directory to prevent overwriting
+    export_directory = str(Path(mkdtemp()))
+    # export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))
+    acados_sim.code_gen_opts.code_export_directory = export_directory
     print("Setting up acados integrator...")
 
     acados_sim_solver = AcadosSimSolver(
@@ -158,6 +165,9 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
         verbose=False,
         json_file=os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")  # prevent overwriting
     )
+    
+    # schedule folder deletion after the program finishes
+    DeleteDirectoryHook(acados_sim_solver, export_directory)
 
     return acados_sim_solver
 
