@@ -5,7 +5,8 @@ from typing import Literal
 import sys
 from pathlib import Path
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
+from argparse import ArgumentParser
 
 from leap_c.run import default_name, default_output_path, init_run
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
@@ -13,6 +14,7 @@ from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 from race_car.utils.logging import Tee
+from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
 
 def create_cfg(
@@ -78,13 +80,12 @@ def create_cfg(
 
 
 if __name__ == "__main__":
-    from argparse import ArgumentParser
-    from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
     parser = ArgumentParser()
-    parser.add_argument("--size", type=str, default=None)  # "default" or "large", must be specified
+    parser.add_argument("--size", type=str, default="default")  # "default" or "large", must be specified
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--timestamp", type=str, default=None)
     args = parser.parse_args()
 
     # select the car parameters
@@ -100,7 +101,12 @@ if __name__ == "__main__":
     # other settings
     use_wandb = False
     tags = ["sac_zop", args.size, "dimensionless" if args.dimensionless else "dimensional"]
-    output_path = default_output_path(args.seed, tags=tags)
+    if args.timestamp:
+        dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
+        timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
+        output_path = f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}"
+    else:
+        output_path = default_output_path(args.seed, tags=tags)
     Path(output_path).mkdir(parents=True, exist_ok=True)
  
     # ---- Logging setup ----
@@ -146,6 +152,12 @@ if __name__ == "__main__":
 
         elapsed = time.monotonic() - t_start
         print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
+
+    except Exception as e:
+        import traceback
+        print(f"Run crashed with: {e}")
+        traceback.print_exc()
+        raise
 
     finally:
         sys.stdout = tee_out._stream
