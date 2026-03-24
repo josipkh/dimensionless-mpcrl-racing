@@ -69,13 +69,23 @@ def get_default_car_params() -> CarParams:
         cr3=np.array([5.0]),
 
         q_diag_log=np.log10([
-            1e-1,
-            1e-8,
-            1e-8,
-            1e-8,
+            1e-2,
+            1e-4,
+            1e-4,
+            1e-4,
             1e-3,
             5e-3,
         ]),
+
+        # original values
+        # q_diag_log=np.log10([
+        #     1e-1,
+        #     1e-8,
+        #     1e-8,
+        #     1e-8,
+        #     1e-3,
+        #     5e-3,
+        # ]),
 
         r_diag_log=np.log10([
             1e-3,
@@ -85,11 +95,21 @@ def get_default_car_params() -> CarParams:
         qe_diag_log=np.log10([
             5e+0,
             1e+2,
-            1e-8,
-            1e-8,
+            1e-4,
+            1e-4,
             1e-3,
             5e-3,
         ]),
+
+        # original values
+        # qe_diag_log=np.log10([
+        #     5e+0,
+        #     1e+2,
+        #     1e-8,
+        #     1e-8,
+        #     1e-3,
+        #     5e-3,
+        # ]),
 
         slack_n_linear=np.array([100.0]),
         slack_n_quadratic=np.array([1.0]),
@@ -122,8 +142,8 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     """Create a list of parameters to be handled within acados"""
     from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
     # add the learnable cost weights and non-learnable progress reference
-    cost_min = 1e-12  # lower limit on the individual weights
-    cost_max = 1e+06  # upper limit on the individual weights
+    cost_min = 1e-5  # lower limit on the individual weights
+    cost_max = 1e+4  # upper limit on the individual weights
     nx = 4  # original (non-extended) state dimension
 
     # nondimensionalize the cost weights if needed
