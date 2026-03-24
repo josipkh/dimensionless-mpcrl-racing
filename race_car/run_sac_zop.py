@@ -2,12 +2,17 @@
 
 from dataclasses import asdict
 from typing import Literal
+import sys
+from pathlib import Path
+import time
+from datetime import timedelta
 
 from leap_c.run import default_name, default_output_path, init_run
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
 
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
+from race_car.utils.logging import Tee
 
 
 def create_cfg(
@@ -19,7 +24,7 @@ def create_cfg(
 
     # ---- Section: cfg.trainer ----
     cfg.seed = seed
-    cfg.train_steps = 50_000
+    cfg.train_steps = 100_000
     cfg.train_start = 0
     cfg.val_freq = 10_000
     cfg.val_num_rollouts = 1
@@ -59,7 +64,7 @@ def create_cfg(
     # ---- Section: cfg.actor ----
     cfg.actor.noise = "param"
     cfg.actor.extractor_name = "identity"
-    cfg.actor.distribution_name = "squashed_gaussian"
+    cfg.actor.distribution_name = "mode_concentration_beta"  # "squashed_gaussian"
     cfg.actor.residual = True  # important to start from default param values
     cfg.actor.entropy_correction = False
 
@@ -73,41 +78,78 @@ def create_cfg(
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import (
-        get_default_car_params, get_default_car_params_tracking,
-        get_large_car_params, get_large_car_params_tracking
-    )
+    from argparse import ArgumentParser
+    from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
-    car_params = get_default_car_params_tracking()
-    dimensionless = False
-    seed = 0
+    parser = ArgumentParser()
+    parser.add_argument("--size", type=str, default=None)  # "default" or "large", must be specified
+    parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
+    parser.add_argument("--seed", type=int, default=0)
+    args = parser.parse_args()
+
+    # select the car parameters
+    if args.size == "default":
+        from race_car.utils.config import get_default_car_params_tracking
+        car_params = get_default_car_params_tracking()
+    elif args.size == "large":
+        from race_car.utils.config import get_large_car_params_tracking
+        car_params = get_large_car_params_tracking()
+    else:
+        raise ValueError("Please specify the car size with --size (e.g. --size default)")
+
+    # other settings
     use_wandb = False
+    tags = ["sac_zop", args.size, "dimensionless" if args.dimensionless else "dimensional"]
+    output_path = default_output_path(args.seed, tags=tags)
+    Path(output_path).mkdir(parents=True, exist_ok=True)
+ 
+    # ---- Logging setup ----
+    log_file = Path(output_path) / "output.log"
+    tee_out = Tee(sys.stdout, log_file)
+    tee_err = Tee(sys.stderr, log_file)
+    sys.stdout = tee_out
+    sys.stderr = tee_err
 
-    output_path = default_output_path(seed, tags=["sac_zop", "racing"])
-    cfg = create_cfg(seed=seed)
+    t_start = time.monotonic()
 
-    train_env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=None)
-    val_env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
-    controller = RaceCarController(car_params=car_params, dimensionless=dimensionless)
+    try:
+        cfg = create_cfg(seed=args.seed)
 
-    if use_wandb:
-        config_dict = asdict(cfg)
-        cfg.log.wandb_logger = True
-        cfg.log.wandb_init_kwargs = {
-            "entity": None,
-            "project": "leap-c",
-            "name": default_name(seed, tags=["sac_zop", "racing"]),
-            "config": config_dict,
-        }
+        print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
 
-    trainer = SacZopTrainer(
-        cfg=cfg,
-        controller=controller,
-        train_env=train_env,
-        val_env=val_env,
-        output_path=output_path,
-        device="cpu",
-    )
-    init_run(trainer, cfg, output_path)
-    trainer.run()
+        train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
+        val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
+        controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
+
+        if use_wandb:
+            config_dict = asdict(cfg)
+            cfg.log.wandb_logger = True
+            cfg.log.wandb_init_kwargs = {
+                "entity": None,
+                "project": "leap-c",
+                "name": default_name(args.seed, tags=tags),
+                "config": config_dict,
+            }
+
+        trainer = SacZopTrainer(
+            cfg=cfg,
+            controller=controller,
+            train_env=train_env,
+            val_env=val_env,
+            output_path=output_path,
+            device="cpu",
+        )
+
+        init_run(trainer, cfg, output_path)
+
+        trainer.run()
+
+        elapsed = time.monotonic() - t_start
+        print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
+
+    finally:
+        sys.stdout = tee_out._stream
+        sys.stderr = tee_err._stream
+        tee_out.close()
+        tee_err.close()
 
