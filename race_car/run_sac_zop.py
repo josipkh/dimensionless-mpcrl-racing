@@ -13,7 +13,7 @@ from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
 
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
-from race_car.utils.logging import Tee
+from race_car.utils.log_utils import Tee
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
 
@@ -28,7 +28,7 @@ def create_cfg(
     cfg.seed = seed
     cfg.train_steps = 100_000
     cfg.train_start = 0
-    cfg.val_freq = 10_000
+    cfg.val_freq = 2_000
     cfg.val_num_rollouts = 1
     cfg.val_deterministic = True
     cfg.val_num_render_rollouts = 1

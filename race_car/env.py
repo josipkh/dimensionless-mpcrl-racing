@@ -123,7 +123,7 @@ class RaceCarEnv(gym.Env):
         # concatenate the action into observations (MPC uses control rates as inputs)
         obs = np.concatenate([obs, action])
 
-        # calculate the reward (TODO: check the reward/penalty formulation)
+        # calculate the reward
         # reward speed in the right direction
         # r = s_prev[3] * np.cos(s_prev[2])  # velocity * cos(heading error)
 
