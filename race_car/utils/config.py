@@ -139,12 +139,22 @@ def get_default_car_params() -> CarParams:
 
 
 def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[AcadosParameter, ...]:
-    """Create a list of parameters to be handled within acados"""
+    """Create a list of leap-c parameters (learnable cost weights and non-learnable progress reference)."""
     from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
-    # add the learnable cost weights and non-learnable progress reference
-    cost_min = 1e-5  # lower limit on the individual weights
-    cost_max = 1e+4  # upper limit on the individual weights
+    cost_min_default = 1e-5  # lower limit on the individual weights (for the default car)
+    cost_max_default = 1e+4  # upper limit on the individual weights (for the default car)
     nx = 4  # original (non-extended) state dimension
+
+    qx_diag_min_default = cost_min_default * np.ones_like(car_params.q_diag_log[:nx])
+    qx_diag_max_default = cost_max_default * np.ones_like(car_params.q_diag_log[:nx])
+
+    # adjust the bounds for the specified car, for appropriate sampling
+    Mx = get_transformation_matrices(get_default_car_params())[0]
+    mx = get_transformation_matrices(car_params)[0]
+
+    M = Mx[:nx, :nx] @ np.linalg.inv(mx[:nx, :nx])
+    qx_diag_min = (M.T @ np.diag(qx_diag_min_default) @ M).diagonal()
+    qx_diag_max = (M.T @ np.diag(qx_diag_max_default) @ M).diagonal()
 
     # nondimensionalize the cost weights if needed
     if dimensionless:
@@ -157,13 +167,17 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         M = Mx.T @ Qe @ Mx
         qe_diag_log_dimensionless = np.log10(M.diagonal())
 
+        # also scale the cost weight limits, for appropriate sampling
+        qx_diag_min = Mx.diagonal()[:nx] ** 2 * qx_diag_min
+        qx_diag_max = Mx.diagonal()[:nx] ** 2 * qx_diag_max
+
     params = [
         AcadosParameter(
             name="qx_diag_log",
             default=car_params.q_diag_log[:nx] if not dimensionless else q_diag_log_dimensionless[:nx],
             space=gym.spaces.Box(
-                low=np.log10(cost_min * np.ones_like(car_params.q_diag_log[:nx])),
-                high=np.log10(cost_max * np.ones_like(car_params.q_diag_log[:nx])),
+                low=np.log10(qx_diag_min),
+                high=np.log10(qx_diag_max),
                 dtype=np.float64),
             interface="learnable",
         ),
@@ -180,9 +194,9 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         AcadosParameter(
             name="qex_diag_log",
             default=car_params.qe_diag_log[:nx] if not dimensionless else qe_diag_log_dimensionless[:nx],
-            space=gym.spaces.Box(
-                low=np.log10(cost_min * np.ones_like(car_params.qe_diag_log[:nx])),
-                high=np.log10(cost_max * np.ones_like(car_params.qe_diag_log[:nx])),
+            space=gym.spaces.Box(  # use the same bounds as for the stage cost weights
+                low=np.log10(qx_diag_min),
+                high=np.log10(qx_diag_max),
                 dtype=np.float64),
             interface="learnable",
         ),
@@ -240,5 +254,6 @@ if __name__ == "__main__":
     get_large_car_params()
     get_large_car_params_tracking()
     print("-"*50)
-    pprint(create_acados_params(car_params=car_params, dimensionless=False))
+    create_acados_params(car_params=get_default_car_params(), dimensionless=True)
+    create_acados_params(car_params=get_large_car_params(), dimensionless=True)
     print("ok")
