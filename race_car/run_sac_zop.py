@@ -27,7 +27,7 @@ def create_cfg(
     # ---- Section: cfg.trainer ----
     cfg.seed = seed
     cfg.train_steps = 100_000
-    cfg.train_start = 0
+    cfg.train_start = 1_000
     cfg.val_freq = 2_000
     cfg.val_num_rollouts = 1
     cfg.val_deterministic = True
@@ -40,10 +40,10 @@ def create_cfg(
     cfg.gamma = 0.99
     cfg.tau = 0.005
     cfg.soft_update_freq = 1
-    cfg.lr_q = 3e-4  # 0.001
-    cfg.lr_pi = 3e-4  # 1e-3
-    cfg.lr_alpha = 0.001
-    cfg.init_alpha = 0.02
+    cfg.lr_q = 3e-4
+    cfg.lr_pi = 3e-4
+    cfg.lr_alpha = 3e-4
+    cfg.init_alpha = 0.005
     cfg.target_entropy = None
     cfg.entropy_reward_bonus = True
     cfg.num_critics = 2
@@ -54,7 +54,7 @@ def create_cfg(
     cfg.log.interval = 1000
     cfg.log.window = 10_000
     cfg.log.csv_logger = True
-    cfg.log.tensorboard_logger = False
+    cfg.log.tensorboard_logger = True
     cfg.log.wandb_logger = False
     cfg.log.wandb_init_kwargs = {}
 
@@ -82,7 +82,7 @@ def create_cfg(
 if __name__ == "__main__":
 
     parser = ArgumentParser()
-    parser.add_argument("--size", type=str, default="default")  # "default" or "large", must be specified
+    parser.add_argument("--size", type=str, default="default")  # "default" or "large"
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timestamp", type=str, default=None)
@@ -99,7 +99,6 @@ if __name__ == "__main__":
         raise ValueError("Please specify the car size with --size (e.g. --size default)")
 
     # other settings
-    use_wandb = False
     tags = ["sac_zop", args.size, "dimensionless" if args.dimensionless else "dimensional"]
     if args.timestamp:
         dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
@@ -127,9 +126,8 @@ if __name__ == "__main__":
         val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
         controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
 
-        if use_wandb:
+        if cfg.log.wandb_logger:
             config_dict = asdict(cfg)
-            cfg.log.wandb_logger = True
             cfg.log.wandb_init_kwargs = {
                 "entity": None,
                 "project": "leap-c",

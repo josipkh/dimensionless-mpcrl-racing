@@ -110,7 +110,7 @@ class RaceCarEnv(gym.Env):
         action = self.previous_action + self.dt * action
 
         # simulate one time step
-        s_prev = self.s
+        # s_prev = self.s
         self.s = self.integrator.simulate(x=self.s, u=action)
         if self.render_mode is not None:
             self.state_log.append(self.s)  # save trajectory for plotting
