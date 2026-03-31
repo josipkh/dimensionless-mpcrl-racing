@@ -118,7 +118,9 @@ class RaceCarEnv(gym.Env):
         self.total_time += self.dt
 
         # scale the observation if needed
-        obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
+        # TODO: always return dimensionless observations
+        # obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
+        obs = self.s  # observation always dimensional, nondimensionalize in the controller
 
         # concatenate the action into observations (MPC uses control rates as inputs)
         obs = np.concatenate([obs, action])

@@ -145,8 +145,11 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     cost_max_default = 1e+4  # upper limit on the individual weights (for the default car)
     nx = 4  # original (non-extended) state dimension
 
+    # TODO: always work with dimensionless cost weights
     qx_diag_min_default = cost_min_default * np.ones_like(car_params.q_diag_log[:nx])
     qx_diag_max_default = cost_max_default * np.ones_like(car_params.q_diag_log[:nx])
+
+    default_car_params = get_default_car_params_tracking()
 
     # adjust the bounds for the specified car, for appropriate sampling
     Mx = get_transformation_matrices(get_default_car_params())[0]
@@ -174,10 +177,10 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     params = [
         AcadosParameter(
             name="qx_diag_log",
-            default=car_params.q_diag_log[:nx] if not dimensionless else q_diag_log_dimensionless[:nx],
+            default=default_car_params.q_diag_log[:nx],  # TODO: fix
             space=gym.spaces.Box(
-                low=np.log10(qx_diag_min),
-                high=np.log10(qx_diag_max),
+                low=np.log10(qx_diag_min_default),
+                high=np.log10(qx_diag_max_default),
                 dtype=np.float64),
             interface="learnable",
         ),
@@ -193,10 +196,10 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         ),
         AcadosParameter(
             name="qex_diag_log",
-            default=car_params.qe_diag_log[:nx] if not dimensionless else qe_diag_log_dimensionless[:nx],
+            default=default_car_params.qe_diag_log[:nx],  # TODO: fix
             space=gym.spaces.Box(  # use the same bounds as for the stage cost weights
-                low=np.log10(qx_diag_min),
-                high=np.log10(qx_diag_max),
+                low=np.log10(qx_diag_min_default),
+                high=np.log10(qx_diag_max_default),
                 dtype=np.float64),
             interface="learnable",
         ),
