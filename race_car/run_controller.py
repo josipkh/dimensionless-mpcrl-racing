@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any, Generator
+from tempfile import mkdtemp
 
 import gymnasium as gym
 import torch
@@ -86,10 +87,11 @@ if __name__ == "__main__":
     )
 
     car_params = get_default_car_params()
-    dimensionless = False
-    seed = 0    
+    dimensionless = True
+    seed = 0
+    keep_output = False
 
-    output_path = default_output_path(seed=seed, tags=["baseline", "racing"])
+    output_path = default_output_path(seed=seed, tags=["baseline"]) if keep_output else str(Path(mkdtemp()))
     render_mode = "rgb_array"
     
     env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=render_mode)
