@@ -1,19 +1,18 @@
 """Main script to run SAC-ZOP experiments."""
 
-from dataclasses import asdict
 from typing import Literal
-import sys
 from pathlib import Path
 import time
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
+from tempfile import mkdtemp
 
-from leap_c.run import default_name, default_output_path, init_run
+from leap_c.run import default_output_path, init_run
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
 
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
-from race_car.utils.log_utils import Tee
+from race_car.utils.log_utils import tee_logging
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
 
@@ -81,6 +80,8 @@ def create_cfg(
 
 if __name__ == "__main__":
 
+    keep_output = False
+
     parser = ArgumentParser()
     parser.add_argument("--size", type=str, default="default")  # "default" or "large"
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
@@ -105,61 +106,38 @@ if __name__ == "__main__":
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
         output_path = f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}"
     else:
-        output_path = default_output_path(args.seed, tags=tags)
+        output_path = default_output_path(args.seed, tags=tags) if keep_output else str(Path(mkdtemp()))
     Path(output_path).mkdir(parents=True, exist_ok=True)
- 
-    # ---- Logging setup ----
-    log_file = Path(output_path) / "output.log"
-    tee_out = Tee(sys.stdout, log_file)
-    tee_err = Tee(sys.stderr, log_file)
-    sys.stdout = tee_out
-    sys.stderr = tee_err
 
-    t_start = time.monotonic()
 
-    try:
-        cfg = create_cfg(seed=args.seed)
+    with tee_logging(Path(output_path)):
+        t_start = time.monotonic()
+        try:
+            print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
+            cfg = create_cfg(seed=args.seed)
+            train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
+            val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
+            controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
 
-        print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
+            trainer = SacZopTrainer(
+                cfg=cfg,
+                controller=controller,
+                train_env=train_env,
+                val_env=val_env,
+                output_path=output_path,
+                device="cpu",
+            )
 
-        train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
-        val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
-        controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
+            init_run(trainer, cfg, output_path)
+            trainer.run()
 
-        if cfg.log.wandb_logger:
-            config_dict = asdict(cfg)
-            cfg.log.wandb_init_kwargs = {
-                "entity": None,
-                "project": "leap-c",
-                "name": default_name(args.seed, tags=tags),
-                "config": config_dict,
-            }
+            elapsed = time.monotonic() - t_start
+            print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
 
-        trainer = SacZopTrainer(
-            cfg=cfg,
-            controller=controller,
-            train_env=train_env,
-            val_env=val_env,
-            output_path=output_path,
-            device="cpu",
-        )
+        except Exception as e:
+            import traceback
+            print(f"Run crashed with: {e}")
+            traceback.print_exc()
+            raise
 
-        init_run(trainer, cfg, output_path)
-
-        trainer.run()
-
-        elapsed = time.monotonic() - t_start
-        print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
-
-    except Exception as e:
-        import traceback
-        print(f"Run crashed with: {e}")
-        traceback.print_exc()
-        raise
-
-    finally:
-        sys.stdout = tee_out._stream
-        sys.stderr = tee_err._stream
-        tee_out.close()
-        tee_err.close()
 

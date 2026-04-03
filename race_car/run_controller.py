@@ -3,6 +3,9 @@
 from pathlib import Path
 from typing import Any, Generator
 from tempfile import mkdtemp
+from argparse import ArgumentParser
+from datetime import datetime, timedelta
+import time
 
 import gymnasium as gym
 import torch
@@ -15,6 +18,7 @@ from leap_c.trainer import Trainer, TrainerConfig
 
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
+from race_car.utils.log_utils import tee_logging
 
 
 class BaselineTrainer(Trainer):
@@ -81,32 +85,64 @@ def create_cfg(seed: int) -> TrainerConfig:
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import (
-        get_default_car_params, get_default_car_params_tracking,
-        get_large_car_params, get_large_car_params_tracking
-    )
-
-    car_params = get_default_car_params()
-    dimensionless = True
+    
     seed = 0
+    render_mode = "rgb_array"
     keep_output = False
 
-    output_path = default_output_path(seed=seed, tags=["baseline"]) if keep_output else str(Path(mkdtemp()))
-    render_mode = "rgb_array"
+    parser = ArgumentParser()
+    parser.add_argument("--size", type=str, default="default")  # "default" or "large"
+    parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
+    parser.add_argument("--timestamp", type=str, default=None)
+    args = parser.parse_args()
+
+    # select the car parameters
+    if args.size == "default":
+        from race_car.utils.config import get_default_car_params_tracking
+        car_params = get_default_car_params_tracking()
+    elif args.size == "large":
+        from race_car.utils.config import get_large_car_params_tracking
+        car_params = get_large_car_params_tracking()
+    else:
+        raise ValueError("Please specify the car size with --size (e.g. --size default)")
     
-    env = RaceCarEnv(car_params=car_params, dimensionless=dimensionless, mpc_car_params=car_params, render_mode=render_mode)
-    controller = RaceCarController(car_params=car_params, dimensionless=dimensionless)
+    # car_params = get_large_car_params_tracking()
+    # args.dimensionless = True   
+    
+    tags = ["baseline", args.size, "dimensionless" if args.dimensionless else "dimensional"]
+    if args.timestamp:
+        dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
+        timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
+        output_path = f"output/{timestamp_formatted}_baseline_seed_{seed}/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}"
+    else:
+        output_path = default_output_path(args.seed, tags=tags) if keep_output else str(Path(mkdtemp()))
+    Path(output_path).mkdir(parents=True, exist_ok=True)
 
-    cfg = create_cfg(seed=seed)
+    with tee_logging(Path(output_path)):
+        t_start = time.monotonic()
+        try:
+            print(f"Running baseline with the {args.size} car, dimensionless={args.dimensionless}, seed={seed}")
+            env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=render_mode)
+            controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
 
-    trainer = BaselineTrainer(
-        cfg=cfg,
-        eval_env=env,
-        controller=controller,
-        output_path=output_path,
-        device="cpu",        
-    )
+            cfg = create_cfg(seed=seed)
 
-    init_run(trainer, cfg, output_path)
+            trainer = BaselineTrainer(
+                cfg=cfg,
+                eval_env=env,
+                controller=controller,
+                output_path=output_path,
+                device="cpu",        
+            )
 
-    trainer.run()
+            init_run(trainer, cfg, output_path)
+            trainer.run()
+
+            elapsed = time.monotonic() - t_start
+            print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
+
+        except Exception as e:
+            import traceback
+            print(f"Run crashed with: {e}")
+            traceback.print_exc()
+            raise
