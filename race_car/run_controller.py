@@ -88,7 +88,7 @@ if __name__ == "__main__":
     
     seed = 0
     render_mode = "rgb_array"
-    keep_output = False
+    keep_output = False  # only relevant if running this file directly
 
     parser = ArgumentParser()
     parser.add_argument("--size", type=str, default="default")  # "default" or "large"
@@ -106,8 +106,8 @@ if __name__ == "__main__":
     else:
         raise ValueError("Please specify the car size with --size (e.g. --size default)")
     
-    # car_params = get_large_car_params_tracking()
-    # args.dimensionless = True   
+    # car_params = get_default_car_params_tracking()
+    # args.dimensionless = True
     
     tags = ["baseline", args.size, "dimensionless" if args.dimensionless else "dimensional"]
     if args.timestamp:
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
         output_path = f"output/{timestamp_formatted}_baseline_seed_{seed}/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}"
     else:
-        output_path = default_output_path(args.seed, tags=tags) if keep_output else str(Path(mkdtemp()))
+        output_path = default_output_path(seed, tags=tags) if keep_output else str(Path(mkdtemp()))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
     with tee_logging(Path(output_path)):
