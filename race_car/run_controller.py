@@ -120,29 +120,22 @@ if __name__ == "__main__":
 
     with tee_logging(Path(output_path)):
         t_start = time.monotonic()
-        try:
-            print(f"Running baseline with the {args.size} car, dimensionless={args.dimensionless}, seed={seed}")
-            env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=render_mode)
-            controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
+        print(f"Running baseline with the {args.size} car, dimensionless={args.dimensionless}, seed={seed}")
+        env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=render_mode)
+        controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
 
-            cfg = create_cfg(seed=seed)
+        cfg = create_cfg(seed=seed)
 
-            trainer = BaselineTrainer(
-                cfg=cfg,
-                eval_env=env,
-                controller=controller,
-                output_path=output_path,
-                device="cpu",        
-            )
+        trainer = BaselineTrainer(
+            cfg=cfg,
+            eval_env=env,
+            controller=controller,
+            output_path=output_path,
+            device="cpu",        
+        )
 
-            init_run(trainer, cfg, output_path)
-            trainer.run()
+        init_run(trainer, cfg, output_path)
+        trainer.run()
 
-            elapsed = time.monotonic() - t_start
-            print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
-
-        except Exception as e:
-            import traceback
-            print(f"Run crashed with: {e}")
-            traceback.print_exc()
-            raise
+        elapsed = time.monotonic() - t_start
+        print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")

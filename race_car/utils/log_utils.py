@@ -38,6 +38,11 @@ def tee_logging(output_path: Path):
         sys.stderr = tee_err
         try:
             yield
+        except Exception as e:
+            import traceback
+            print(f"Run crashed with: {e}")
+            traceback.print_exc()
+            raise
         finally:
             sys.stdout = tee_out._stream
             sys.stderr = tee_err._stream

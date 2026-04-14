@@ -58,7 +58,7 @@ def create_cfg(
     cfg.log.wandb_init_kwargs = {}
 
     # ---- Section: cfg.critic_mlp ----
-    cfg.critic_mlp.hidden_dims = (256, 256, 256)
+    cfg.critic_mlp.hidden_dims = (64, 64, 64)
     cfg.critic_mlp.activation = "relu"
     cfg.critic_mlp.weight_init = "orthogonal"
 
@@ -80,7 +80,7 @@ def create_cfg(
 
 if __name__ == "__main__":
 
-    keep_output = False
+    keep_output = False  # only relevant if running this file directly
 
     parser = ArgumentParser()
     parser.add_argument("--size", type=str, default="default")  # "default" or "large"
@@ -112,32 +112,23 @@ if __name__ == "__main__":
 
     with tee_logging(Path(output_path)):
         t_start = time.monotonic()
-        try:
-            print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
-            cfg = create_cfg(seed=args.seed)
-            train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
-            val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
-            controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
+        print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
+        cfg = create_cfg(seed=args.seed)
+        train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
+        val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
+        controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)
 
-            trainer = SacZopTrainer(
-                cfg=cfg,
-                controller=controller,
-                train_env=train_env,
-                val_env=val_env,
-                output_path=output_path,
-                device="cpu",
-            )
+        trainer = SacZopTrainer(
+            cfg=cfg,
+            controller=controller,
+            train_env=train_env,
+            val_env=val_env,
+            output_path=output_path,
+            device="cpu",
+        )
 
-            init_run(trainer, cfg, output_path)
-            trainer.run()
+        init_run(trainer, cfg, output_path)
+        trainer.run()
 
-            elapsed = time.monotonic() - t_start
-            print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
-
-        except Exception as e:
-            import traceback
-            print(f"Run crashed with: {e}")
-            traceback.print_exc()
-            raise
-
-
+        elapsed = time.monotonic() - t_start
+        print(f"\nRun finished. Wall-clock time: {timedelta(seconds=round(elapsed))} ({elapsed:.1f} s)")
