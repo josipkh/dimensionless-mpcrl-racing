@@ -5,7 +5,7 @@ if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <results_folder>"
     exit 1
 fi
-TOP_FOLDER="$1"
+TOP_FOLDER="${1%/}"
 if [ ! -d "$TOP_FOLDER" ]; then
     echo "Error: Folder '$TOP_FOLDER' does not exist."
     exit 1
