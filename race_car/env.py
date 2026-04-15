@@ -15,30 +15,49 @@ class RaceCarEnv(gym.Env):
 
     def __init__(
         self,
-        render_mode: str | None = None,
-        car_params: CarParams | None = None,
+        car_params: CarParams,
         dimensionless: bool = True,
         mpc_car_params: CarParams | None = None,
+        render_mode: str | None = None,
     ):
-        if car_params is None or mpc_car_params is None:
-            mpc_car_params = car_params = get_default_car_params()
-            print("Car parameters not provided. Using default parameters.")
-            # raise ValueError("Car parameters not provided in the env.")
+        if mpc_car_params is None:
+            print("MPC car parameters not provided, using the same as in the env.")
+            mpc_car_params = car_params
 
         self.car_params = car_params
         self.dimensionless = dimensionless  # whether to use the dimensionless formulation
+        self.s_max = get_track(car_params)[0][-1]  # [m] total length of the track
+        self.dt = car_params.dt.item()  # [s] time step for the simulation
 
-        self.nx = 4  # number of states
-        self.nu = 2  # number of inputs            
+        self.nx = 4  # number of states (original)
+        self.nu = 2  # number of inputs (absolute inputs or control rates)
 
         # integrator for simulating the dynamics (always dimensional)
         self.integrator = export_acados_integrator(car_params=car_params, dimensionless=False)
 
         # state and action bounds
-        large_number = 1e3  # vehicle states unbounded for now (going offroad is acceptable during learning)
-        state_bounds = large_number * np.ones((self.nx,), dtype=np.float32)  # just the original states
-        obs_ub = np.concatenate(( state_bounds, np.array([car_params.D_max.item(), car_params.delta_max.item()], dtype=np.float32)))
-        obs_lb = np.concatenate((-state_bounds, np.array([car_params.D_min.item(), car_params.delta_min.item()], dtype=np.float32)))
+        v_max_dimensionless = 0.93  # corresponds to 3 [m/s] for the default car, from Fig. 1 in https://www.sciencedirect.com/science/article/pii/S2405896320317845
+        v_max = v_max_dimensionless * (car_params.l.item() / car_params.dt.item())  # [m/s]
+        obs_ub = np.array([
+            self.s_max,  # [m]
+            car_params.n_max.item(),  # [m]
+            np.pi/2,  # [rad] alpha max (heading error can be at most 90 degrees, otherwise the car would be driving backwards)
+            v_max,
+            car_params.D_max.item(),
+            car_params.delta_max.item()
+        ], dtype=np.float32)
+        obs_lb = np.array([
+            -0.1 * self.s_max,
+            car_params.n_min.item(),
+            -np.pi/2,
+            -0.1 * v_max,
+            car_params.D_min.item(),
+            car_params.delta_min.item()
+        ], dtype=np.float32)
+        # large_number = 1e3  # vehicle states unbounded for now (going offroad is acceptable during learning)
+        # state_bounds = large_number * np.ones((self.nx,), dtype=np.float32)  # just the original states
+        # obs_ub = np.concatenate(( state_bounds, np.array([car_params.D_max.item(), car_params.delta_max.item()], dtype=np.float32)))
+        # obs_lb = np.concatenate((-state_bounds, np.array([car_params.D_min.item(), car_params.delta_min.item()], dtype=np.float32)))
         act_ub = np.array([car_params.dD_max.item(), car_params.ddelta_max.item()], dtype=np.float32)
         act_lb = np.array([car_params.dD_min.item(), car_params.ddelta_min.item()], dtype=np.float32)
 
@@ -49,41 +68,35 @@ class RaceCarEnv(gym.Env):
         act_lb *= 1.05
 
         if dimensionless:
-            # use agent instead of env parameters (allow for mismatches)
-            Ms, Ma, _ = get_transformation_matrices(
-                mpc_car_params
-            )  # s(physical) = Ms * s(dimensionless)
+            # use agent instead of env parameters for scaling (allow for mismatches)
+            Ms, Ma, _ = get_transformation_matrices(mpc_car_params)
+            Ms_inv = np.linalg.inv(Ms)  # for the states and absolute control inputs
+            Ma_inv = np.linalg.inv(Ma)  # for the control input rates
 
-            # remove the control input rate from the variable transformation
-            # self.Ma = self.Ms[self.nx:, self.nx:]  # only inputs
-            # self.Ms = self.Ms[:self.nx, :self.nx]  # only states
-
-            Ms_inv = np.linalg.inv(Ms)
-            Ma_inv = np.linalg.inv(Ma)
-
-            # scale the state and action bounds
-            # obs_ub = self.Ms_inv @ obs_ub  # needed if the vehicle states are bounded or inputs dimensional
-            # obs_lb = self.Ms_inv @ obs_lb  # needed if the vehicle states are bounded or inputs dimensional
+            # make the bounds dimensionless
+            obs_ub = Ms_inv @ obs_ub
+            obs_lb = Ms_inv @ obs_lb
             act_ub = Ma_inv @ act_ub
             act_lb = Ma_inv @ act_lb
 
-            # define helper functions
+            # define helper functions for scaling (vehicle states, absolute control inputs, control input rates)
             self.dim2nondim_s = lambda s: Ms_inv[:self.nx, :self.nx] @ s
             self.nondim2dim_s = lambda s: Ms[:self.nx, :self.nx] @ s
-            self.dim2nondim_a = lambda a: Ma_inv @ a
-            self.nondim2dim_a = lambda a: Ma @ a
+            self.dim2nondim_a = lambda a: Ms_inv[self.nx:, self.nx:] @ a
+            self.nondim2dim_a = lambda a: Ms[self.nx:, self.nx:] @ a
+            self.dim2nondim_da = lambda da: Ma_inv @ da
+            self.nondim2dim_da = lambda da: Ma @ da
 
         self.time_scale = get_transformation_matrices(mpc_car_params)[2].item()  # for scaling the time in the reward
 
-        self.action_space = gym.spaces.Box(np.float32(act_lb), np.float32(act_ub))
-        self.observation_space = gym.spaces.Box(np.float32(obs_lb), np.float32(obs_ub))
+        self.action_space = gym.spaces.Box(np.float32(act_lb), np.float32(act_ub))  # control rates
+        self.observation_space = gym.spaces.Box(np.float32(obs_lb), np.float32(obs_ub))  # extended state
+        self.input_space = gym.spaces.Box(np.float32(obs_lb[self.nx:]), np.float32(obs_ub[self.nx:]))  # for the absolute inputs
+        self.state_space = gym.spaces.Box(np.float32(obs_lb[:self.nx]), np.float32(obs_ub[:self.nx]))  # for the vehicle states
 
         self.reset_needed = True
         self.s = None  # physical state
         self.previous_action = None
-
-        self.s_max = get_track(car_params)[0][-1]  # [m] total length of the track
-        self.dt = car_params.dt.item()  # [s] time step for the simulation
 
         # For rendering
         if not (render_mode is None or render_mode in self.metadata["render_modes"]):
@@ -102,44 +115,42 @@ class RaceCarEnv(gym.Env):
         if self.reset_needed:
             raise RuntimeError("Call reset before using the step method.")
         
-        # scale the MPC output back if dimensionless
-        if self.dimensionless:
-            action = self.nondim2dim_a(action)
+        # assert self.action_space.contains(np.array(action, dtype=np.float32)), "Control rate is out of bounds"
+        action_dimensional = self.nondim2dim_da(action) if self.dimensionless else action
 
         # MPC outputs the control rate, integrate
-        action = self.previous_action + self.dt * action
+        u = self.previous_action + self.dt * action_dimensional
+        # assert self.input_space.contains(np.array(u, dtype=np.float32)), "Control input is out of bounds"
+        u_clipped = False
+        if not self.input_space.contains(np.array(u, dtype=np.float32)):
+            u_clipped = True
+            print("Clipping action")
+            u = np.clip(u, self.input_space.low, self.input_space.high)
 
         # simulate one time step
         # s_prev = self.s
-        self.s = self.integrator.simulate(x=self.s, u=action)
+        self.s = self.integrator.simulate(x=self.s, u=u)
         if self.render_mode is not None:
             self.state_log.append(self.s)  # save trajectory for plotting
-        self.previous_action = action  # this is already dimensionless
+        self.previous_action = u  # this should always be dimensional
         self.total_time += self.dt
 
-        # scale the observation if needed
-        # TODO: always return dimensionless observations
-        # obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
-        obs = self.s  # observation always dimensional, nondimensionalize in the controller
+        obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
 
-        # concatenate the action into observations (MPC uses control rates as inputs)
-        obs = np.concatenate([obs, action])
+        # concatenate the control input into observations
+        obs = np.concatenate([obs, self.dim2nondim_a(u) if self.dimensionless else u])
 
-        # calculate the reward
-        # reward speed in the right direction
-        # r = s_prev[3] * np.cos(s_prev[2])  # velocity * cos(heading error)
+        # calculate the reward (combination of relative progress and time, dimensionless)
+        reward_scaling_factor = 0.1  # adjust the magnitude of the reward to prevent numerical issues during learning
+        reward = reward_scaling_factor * (self.s[0] / self.s_max - 50 * self.dt / self.time_scale)
+        if u_clipped:
+            reward *= 1.1  # 10 % increase in (always negative) reward if the action was clipped
 
-        # progress per time step (dimensionless)
-        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item() * self.time_scale / self.dt
-
-        # combination of relative progress and time
-        r = self.s[0] / self.s_max - 50 * self.dt / self.time_scale
-
-        # terminate in minimum time
-        # r = -self.dt / self.time_scale
-
-        # progress along the track (relative to car length)
-        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()
+        # alternative reward options:
+        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item() * self.time_scale / self.dt  # progress per time step
+        # r = s_prev[3] * np.cos(s_prev[2])  # reward speed in the right direction
+        # r = -self.dt / self.time_scale  # terminate in minimum time        
+        # r = (self.s[0] - s_prev[0]) / self.car_params.l.item()  # progress along the track (relative to car length)
 
         # check for termination (reaching the end of the track)
         # TODO: add total race time info
@@ -152,15 +163,20 @@ class RaceCarEnv(gym.Env):
         out_of_bounds = not self.observation_space.contains(np.array(obs, dtype=np.float32))
         timeout = self.total_time > 500 * self.dt
         if out_of_bounds or timeout:
+            if out_of_bounds:
+                # TODO: print which state is out of bounds and by how much
+                print(f"Episode truncated - out of bounds")
+            if timeout:
+                print(f"Episode truncated - timeout")
             trunc = True
-            r -= 100.0
+            reward -= 100.0 * reward_scaling_factor
         else:
             trunc = False
         
         self.reset_needed = trunc or term
         info = {}
 
-        return obs, r, term, trunc, info
+        return obs, reward, term, trunc, info
 
 
     def reset(
@@ -178,14 +194,13 @@ class RaceCarEnv(gym.Env):
         self.state_log = []
         self.total_time = 0.0
 
-        # nondimensionalize if needed
-        if self.dimensionless:
-            self.s = self.dim2nondim_s(self.s)
-            self.previous_action = self.dim2nondim_a(self.previous_action)
-
         self.reset_needed = False        
 
-        obs = np.concatenate([self.s, self.previous_action])  # MPC uses control rates as inputs
+        # observations (vehicle state + absolute control)
+        obs = np.concatenate([
+            self.dim2nondim_s(self.s) if self.dimensionless else self.s,
+            self.dim2nondim_a(self.previous_action) if self.dimensionless else self.previous_action
+        ])
         return obs, {}
 
 
@@ -214,7 +229,6 @@ class RaceCarEnv(gym.Env):
         else:
             state_log = np.array(self.state_log)
 
-        # --- Run your matplotlib plotting logic ---
         s = state_log[:, 0]
         n = state_log[:, 1]
         alpha = state_log[:, 2]
@@ -281,6 +295,7 @@ class RaceCarEnv(gym.Env):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    import os
 
     from race_car.utils.config import get_large_car_params
     dimensionless = True
@@ -333,38 +348,43 @@ if __name__ == "__main__":
         act_log.append(action)
     print(f"max diff: {np.max(diffs)}")
 
-    # plot the results
-    obs_ref_log = np.array(obs_ref_log)
-    obs_sim_log = np.array(obs_sim_log)
-    act_log = np.array(act_log)
-    nx = 4
-    nu = 2
-    fig, ax = plt.subplots(nx + nu, 1, sharex=True)
-    labels = ["ref", "sim"]
-    for i in range(nx):
-        ax[i].plot(obs_ref_log[:, i], color="b", label=labels[0])
-        ax[i].plot(obs_sim_log[:, i], color="r", linestyle="--", label=labels[1])
-        ax[i].grid()
-        ax[i].set_ylabel(env_ref.integrator.acados_sim.model.x_labels[i])
-    ax[0].legend()
-    for i in range(nu):
-        ax[nx+i].step(
-            list(range(obs_ref_log.shape[0])),
-            np.append([act_log[0, i]], act_log[:, i]),
-            where="post",
-            color="b",
-        )
-        ax[nx+i].set_ylabel(env_ref.integrator.acados_sim.model.u_labels[i])
-        ax[nx+i].grid()
-    ax[-1].set_xlabel("$k$")
+    if dimensionless:
+        assert np.max(diffs) < 1e-5, "The two envs should produce the same results when dimensionless, but the max difference is {np.max(diffs)}"
 
-    plt.subplots_adjust(left=None, bottom=None, right=None, top=None, hspace=0.4)
-    fig.align_ylabels(ax)
-    plt.show(block=False)
-    print("ok")
-    print("Press ENTER to close the plot")
-    input()
-    plt.close()
+    # plot the results
+    if "DISPLAY" in os.environ:
+        obs_ref_log = np.array(obs_ref_log)
+        obs_sim_log = np.array(obs_sim_log)
+        act_log = np.array(act_log)
+        nx = 4
+        nu = 2
+        fig, ax = plt.subplots(nx + nu, 1, sharex=True)
+        labels = ["ref", "sim"]
+        for i in range(nx):
+            ax[i].plot(obs_ref_log[:, i], color="b", label=labels[0])
+            ax[i].plot(obs_sim_log[:, i], color="r", linestyle="--", label=labels[1])
+            ax[i].grid()
+            ax[i].set_ylabel(env_ref.integrator.acados_sim.model.x_labels[i])
+        ax[0].legend()
+        for i in range(nu):
+            ax[nx+i].step(
+                list(range(obs_ref_log.shape[0])),
+                np.append([act_log[0, i]], act_log[:, i]),
+                where="post",
+                color="b",
+            )
+            ax[nx+i].set_ylabel(env_ref.integrator.acados_sim.model.u_labels[i])
+            ax[nx+i].grid()
+        ax[-1].set_xlabel("$k$")
+
+        plt.subplots_adjust(left=None, bottom=None, right=None, top=None, hspace=0.4)
+        fig.align_ylabels(ax)
+        plt.show(block=False)
+
+        if plt.get_fignums():
+            print("Press ENTER to close the plot")
+            input()
+            plt.close()
 
     env_ref.close()
     env_sim.close()
