@@ -2,6 +2,7 @@
 from copy import deepcopy
 
 import numpy as np
+import casadi as ca
 
 from race_car.utils.config import CarParams, get_default_car_params
 
@@ -135,7 +136,27 @@ def compare_params(car1: CarParams, car2: CarParams):
     print_group("Longitudinal Force", force_fields)
     print_group("Controller", controller_fields)
     print('\n')
-    
+
+
+def compare_casadi_expressions(expr1: ca.SX, syms1: ca.SX, expr2: ca.SX, syms2: ca.SX, num_trials=1000, tol=1e-6) -> bool:
+    """Compare two CasADi expressions by evaluating them on random inputs."""
+
+    if str(expr1) == str(expr2):
+        return True  # no need to evaluate
+
+    f1 = ca.Function("f1", [syms1], [expr1])
+    f2 = ca.Function("f2", [syms2], [expr2])
+
+    max_err = 0.0
+    for _ in range(num_trials):
+        vals = np.random.randn(syms1.shape[0])
+        out1 = np.array(f1(vals))
+        out2 = np.array(f2(vals))
+        err = np.max(np.abs(out1 - out2))
+        max_err = max(max_err, err)
+
+    return bool(max_err < tol)
+
 
 if __name__ == "__main__":
     from race_car.utils.track import get_track
