@@ -1,3 +1,4 @@
 [submodule "external/leap-c"]
 	path = external/leap-c
 	url = https://github.com/josipkh/leap-c/
+	branch = dimensionless_mpcrl_racing
