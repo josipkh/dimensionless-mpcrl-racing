@@ -9,7 +9,9 @@ from tempfile import mkdtemp
 
 from leap_c.run import default_output_path, init_run
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
+from leap_c.utils.git import log_git_hash_and_diff
 
+import race_car
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 from race_car.utils.log_utils import tee_logging
@@ -64,7 +66,7 @@ def create_cfg(
 
     # ---- Section: cfg.actor ----
     cfg.actor.noise = "param"
-    cfg.actor.extractor_name = "identity"
+    cfg.actor.extractor_name = "scaling"
     cfg.actor.distribution_name = "mode_concentration_beta"  # "squashed_gaussian"
     cfg.actor.residual = True  # important to start from default param values
     cfg.actor.entropy_correction = False
@@ -109,6 +111,7 @@ if __name__ == "__main__":
         output_path = default_output_path(args.seed, tags=tags) if keep_output else str(Path(mkdtemp()))
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
+    log_git_hash_and_diff(output_path / "my_git_diff.txt", Path(race_car.__path__[0]).parent)  # save the git diff for this repo as well
 
     with tee_logging(Path(output_path)):
         t_start = time.monotonic()
