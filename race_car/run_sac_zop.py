@@ -107,13 +107,14 @@ if __name__ == "__main__":
         dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
         output_path = f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}"
+        output_path = Path(output_path)
     else:
         output_path = default_output_path(args.seed, tags=tags) if keep_output else str(Path(mkdtemp()))
-    Path(output_path).mkdir(parents=True, exist_ok=True)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     log_git_hash_and_diff(output_path / "my_git_diff.txt", Path(race_car.__path__[0]).parent)  # save the git diff for this repo as well
 
-    with tee_logging(Path(output_path)):
+    with tee_logging(output_path):
         t_start = time.monotonic()
         print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
         cfg = create_cfg(seed=args.seed)
