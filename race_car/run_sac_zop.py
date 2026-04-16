@@ -109,7 +109,7 @@ if __name__ == "__main__":
         output_path = f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}"
         output_path = Path(output_path)
     else:
-        output_path = default_output_path(args.seed, tags=tags) if keep_output else str(Path(mkdtemp()))
+        output_path = default_output_path(args.seed, tags=tags) if keep_output else Path(mkdtemp())
     output_path.mkdir(parents=True, exist_ok=True)
 
     log_git_hash_and_diff(output_path / "my_git_diff.txt", Path(race_car.__path__[0]).parent)  # save the git diff for this repo as well

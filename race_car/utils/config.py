@@ -148,6 +148,14 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     qx_diag_min_default = cost_min_default * np.ones_like(car_params.q_diag_log[:nx])
     qx_diag_max_default = cost_max_default * np.ones_like(car_params.q_diag_log[:nx])
 
+    # scale the weight bounds (w.r.t. car size) for correct sampling
+    default_car_params = get_default_car_params()
+    Mx_default = get_transformation_matrices(default_car_params)[0][:nx, :nx]
+    Mx = get_transformation_matrices(car_params)[0][:nx, :nx]
+    scaling_factor = (Mx_default.diagonal() ** 2) / (Mx.diagonal() ** 2)
+    qx_diag_min = qx_diag_min_default * scaling_factor
+    qx_diag_max = qx_diag_max_default * scaling_factor
+
     if dimensionless:
         # learn dimensionless cost weights
         Q, R, Qe = get_cost_matrices(car_params)
@@ -159,17 +167,16 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         M = Mx.T @ Qe @ Mx
         qe_diag_log = np.log10(M.diagonal())
 
-        # adjust the limits for correct sampling
-        qx_diag_min_log = np.log10(Mx.diagonal()[:nx] ** 2 * qx_diag_min_default)
-        qx_diag_max_log = np.log10(Mx.diagonal()[:nx] ** 2 * qx_diag_max_default)
+        # adjust the bounds as well
+        qx_diag_min_log = np.log10(Mx.diagonal()[:nx] ** 2 * qx_diag_min)
+        qx_diag_max_log = np.log10(Mx.diagonal()[:nx] ** 2 * qx_diag_max)
     else:
         q_diag_log = car_params.q_diag_log
         r_diag_log = car_params.r_diag_log
         qe_diag_log = car_params.qe_diag_log
 
-        # TODO: adjust limits for non-default cars?
-        qx_diag_min_log = np.log10(qx_diag_min_default)
-        qx_diag_max_log = np.log10(qx_diag_max_default)
+        qx_diag_min_log = np.log10(qx_diag_min)
+        qx_diag_max_log = np.log10(qx_diag_max)
 
     params = [
         AcadosParameter(
@@ -254,18 +261,24 @@ if __name__ == "__main__":
     pprint(car_params)
     print("-"*50)
 
-    # dimensionless formulations should have the same default cost weights
+    # dimensionless formulations should have the same default values and limits for the parameters
     for (param_a, param_b) in zip(
         create_acados_params(car_params=get_default_car_params(), dimensionless=True),
         create_acados_params(car_params=get_large_car_params(), dimensionless=True)
     ):
         assert np.allclose(param_a.default, param_b.default), f"Default values for parameter '{param_a.name}' do not match: {param_a.default} vs {param_b.default}"
+        if param_a.space:
+            assert np.allclose(param_a.space.high, param_b.space.high)
+            assert np.allclose(param_a.space.low, param_b.space.low)
 
     for (param_a, param_b) in zip(
         create_acados_params(car_params=get_default_car_params_tracking(), dimensionless=True),
         create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=True)
     ):
         assert np.allclose(param_a.default, param_b.default), f"Default values for parameter '{param_a.name}' do not match: {param_a.default} vs {param_b.default}"
+        if param_a.space:
+            assert np.allclose(param_a.space.high, param_b.space.high)
+            assert np.allclose(param_a.space.low, param_b.space.low)
 
     create_acados_params(car_params=get_default_car_params(), dimensionless=False),
     create_acados_params(car_params=get_large_car_params(), dimensionless=False)
