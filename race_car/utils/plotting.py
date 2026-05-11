@@ -1,4 +1,9 @@
 """Utility functions for plotting."""
+import sys
+import matplotlib
+if not hasattr(sys, 'ps1'):
+    matplotlib.use('Agg')  # Non-interactive backend
+
 import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
@@ -116,7 +121,7 @@ def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
     plt.show(block=False)
 
 
-def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time: float):
+def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time: float, output_file: str | None = None):
     """Plot the race track and the driven trajectory."""
     # extract states from the log (shape nx x Nsim)
     s = state_log[:,0]
@@ -158,7 +163,7 @@ def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time:
     # draw driven trajectory
     heatmap = plt.scatter(x, y, c=v, cmap=cm.rainbow, edgecolor='none', marker='o')
     cbar = plt.colorbar(heatmap, fraction=0.035)
-    cbar.set_label("velocity in [m/s]")
+    cbar.ax.set_title("   $v_x$ [m/s]")
     ax = plt.gca()
     ax.set_aspect('equal', 'box')
 
@@ -183,30 +188,39 @@ def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time:
         xi2[i], yi2[i], _, _ = frenet2global(Sref[k], nrefi + 1.25 * distance, 0, 0, car_params)
         plt.plot([xi1[i], xi2[i]], [yi1[i], yi2[i]], color='black')
 
-    plt.show(block=False)
+    if hasattr(sys, 'ps1'):
+        plt.show(block=False)
+    else:
+        plt.savefig(output_file or "plot_track.png")
+        print(f"saved track plot to {output_file or 'plot_track.png'}")
 
 
-def plot_results_classic(simX, simU, t):
+def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, output_file: str | None = None):
     """Plot the states and inputs over time, in a classic way."""
     plt.figure()
+
     plt.subplot(2, 1, 1)
-    plt.step(t, simU[:,0], color='r')
-    plt.step(t, simU[:,1], color='g')
-    plt.title('closed-loop simulation')
-    plt.legend(['dD','ddelta'])
-    plt.ylabel('u')
-    plt.xlabel('t')
-    plt.grid(True)
-    plt.subplot(2, 1, 2)
     plt.plot(t, simX[:,:])
     plt.ylabel('x')
-    plt.xlabel('t')
     plt.legend(['s','n','alpha','v','D','delta'])
     plt.grid(True)
-    plt.show(block=False)
+
+    plt.subplot(2, 1, 2)
+    plt.step(t, simU[:,0], color='r')
+    plt.step(t, simU[:,1], color='g')
+    plt.legend(['dD','ddelta'])
+    plt.ylabel('u')
+    plt.xlabel('t [s]')
+    plt.grid(True)
+
+    if hasattr(sys, 'ps1'):
+        plt.show(block=False)
+    else:
+        plt.savefig(output_file or "plot_classic.png")
+        print(f"saved classic plot to {output_file or 'plot_classic.png'}")
 
 
-def plot_lat_acc(simX, simU, t, car_params):
+def plot_lat_acc(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None):
     """Plot the lateral acceleration over time, with constraints."""
     Nsim = t.shape[0]
     plt.figure()
@@ -216,10 +230,15 @@ def plot_lat_acc(simX, simU, t, car_params):
     plt.plot(t, alat)
     plt.plot([t[0], t[-1]], [car_params.a_lat_min, car_params.a_lat_min], 'k--')
     plt.plot([t[0], t[-1]], [car_params.a_lat_max, car_params.a_lat_max], 'k--')
-    plt.legend(['alat','alat_min/max'])
-    plt.xlabel('t')
-    plt.ylabel('alat[m/s^2]')
-    plt.show(block=False)
+    plt.xlabel('t [s]')
+    plt.ylabel('ay [m/s^2]')
+    plt.grid(True)
+
+    if hasattr(sys, 'ps1'):
+        plt.show(block=False)
+    else:
+        plt.savefig(output_file or "plot_lat_acc.png")
+        print(f"saved lateral acceleration plot to {output_file or 'plot_lat_acc.png'}")
 
 
 def calculate_acc(x, car_params):
@@ -257,7 +276,7 @@ if __name__ == "__main__":
     plot_Fxd_vs_D_slices(car_params=car_params_sim)
 
     try:
-        npz_file = np.load("race_car/jkh_test/large_car_results.npz")
+        npz_file = np.load("jkh_test/large_car_results.npz")
         simX, simU, t = npz_file["simX"], npz_file["simU"], npz_file["t"]
 
         # test plotting with a partial log

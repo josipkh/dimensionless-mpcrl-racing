@@ -17,7 +17,14 @@ def get_track(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray
     xref = array[:,1]  # [m]
     yref = array[:,2]  # [m]
     psiref = array[:,3]  # [rad]
-    kapparef = array[:,4]  # [1/m]
+    # kapparef = array[:,4]  # [1/m]
+
+    # calculate the curvature from (X,Y) points (non-uniform spacing), nicer than the given data
+    dX = np.gradient(xref, sref)
+    dY = np.gradient(yref, sref)
+    ddX = np.gradient(dX, sref)
+    ddY = np.gradient(dY, sref)
+    kapparef = (dX * ddY - dY * ddX) / (dX**2 + dY**2)**1.5
 
     # the track is defined for the small car
     # we need to scale it with the given car size

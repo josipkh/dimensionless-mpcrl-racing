@@ -20,22 +20,22 @@ def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
     model = AcadosModel()
 
     # load track parameters
-    [s0, _, _, _, kapparef] = get_track(car_params=car_params)
+    [sref, _, _, _, kapparef] = get_track(car_params=car_params)
 
     # make dimensionless if needed -> automatically done in nondimensionalize_dynamics()
     # if dimensionless:
-    #     s0 /= car_params.l.item()
+    #     sref /= car_params.l.item()
     #     kapparef *= car_params.l.item()
 
     # copy loop to beginning and end
-    length = len(s0)
-    s0 = np.append(s0, [s0[length - 1] + s0[1:length]])
+    length = len(sref)
+    sref = np.append(sref, [sref[length - 1] + sref[1:length]])
     kapparef = np.append(kapparef, kapparef[1:length])
-    s0 = np.append([-s0[length - 2] + s0[length - 81 : length - 2]], s0)
+    sref = np.append([-sref[length - 2] + sref[length - 81 : length - 2]], sref)
     kapparef = np.append(kapparef[length - 80 : length - 1], kapparef)
 
     # compute spline interpolations
-    kapparef_s = ca.interpolant("kapparef_s", "bspline", [s0], kapparef)
+    kapparef_s = ca.interpolant("kapparef_s", "bspline", [sref], kapparef)
 
     # race car parameters
     m = car_params.m[0]
@@ -248,9 +248,8 @@ def test_integrator(car_params: CarParams, model: AcadosModel):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    from race_car.utils.config import get_default_car_params
-    from race_car.utils.scaling import (get_large_car_params,
-                                        get_transformation_matrices)
+    from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.utils.scaling import get_transformation_matrices
 
     test_type = 1  # 0: small dimensional vs. dimensionless, 1: small vs. large (both dimensionless)
 
