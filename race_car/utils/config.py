@@ -54,6 +54,8 @@ class CarParams:
     gamma: np.ndarray       # discount factor for the cost function
     N: np.ndarray           # prediction horizon (number of steps)
 
+    v_max: np.ndarray       # maximum long. speed [m/s] (approximate)
+
 
 def get_default_car_params() -> CarParams:
     """Parameter values in the original example."""
@@ -113,8 +115,8 @@ def get_default_car_params() -> CarParams:
 
         slack_n_linear=np.array([100.0]),
         slack_n_quadratic=np.array([1.0]),
-        slack_acc_linear=np.array([100.0]),
-        slack_acc_quadratic=np.array([1.0]),
+        slack_acc_linear=np.array([0.0]),  # original value: 100.0
+        slack_acc_quadratic=np.array([1000.0]),  # original value: 1.0
 
         a_lat_max=np.array([+4.0]),
         a_lat_min=np.array([-4.0]),
@@ -135,12 +137,15 @@ def get_default_car_params() -> CarParams:
         dt=np.array([0.02]),
         gamma=np.array([1.0]),
         N=np.array([50]),
+
+        v_max=np.array([2.5]),
     )
 
 
 def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[AcadosParameter, ...]:
     """Create a list of leap-c parameters (learnable cost weights and non-learnable progress reference)."""
     from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
+    # TODO: remove fixed parameters
     cost_min_default = 1e-5  # lower limit on the individual weights (for the default car)
     cost_max_default = 1e+4  # upper limit on the individual weights (for the default car)
     nx = 4  # original (non-extended) state dimension

@@ -69,10 +69,10 @@ def get_similar_car_params(
 
     # match the constraints
     # D_max, D_min, delta_max, delta_min are not changed (they are dimensionless)
-    new_params.dD_max = reference_params.dD_max * Mt / mt
-    new_params.dD_min = reference_params.dD_min * Mt / mt
-    new_params.ddelta_max = reference_params.ddelta_max * Mt / mt
-    new_params.ddelta_min = reference_params.ddelta_min * Mt / mt
+    new_params.dD_max = reference_params.dD_max * (Mt / mt).item()
+    new_params.dD_min = reference_params.dD_min * (Mt / mt).item()
+    new_params.ddelta_max = reference_params.ddelta_max * (Mt / mt).item()
+    new_params.ddelta_min = reference_params.ddelta_min * (Mt / mt).item()
 
     MtCr3 = Mt.item() * reference_params.cr3.item()
     mtcr3 = mt.item() * new_params.cr3.item()
@@ -93,6 +93,9 @@ def get_similar_car_params(
     new_params.slack_n_quadratic = reference_params.slack_n_quadratic * (reference_params.l.item() / new_params.l.item())**2
     new_params.slack_acc_linear = reference_params.slack_acc_linear * mtcr3 / MtCr3
     new_params.slack_acc_quadratic = reference_params.slack_acc_quadratic * (mtcr3 / MtCr3)**2
+
+    # match the top speed
+    new_params.v_max = reference_params.v_max * reference_params.dt.item() / reference_params.l.item() * new_params.l.item() / new_params.dt.item()
 
     return new_params
 
@@ -117,7 +120,7 @@ def compare_params(car1: CarParams, car2: CarParams):
     # Define parameter groups by field names
     chassis_fields = ['m', 'l', 'lr']
     force_fields = ['cm1', 'cm2', 'cr0', 'cr2', 'cr3']
-    controller_fields = ['dt', 'gamma']
+    controller_fields = ['dt', 'gamma', 'v_max']
 
     # Helper to print groups side by side
     def print_group(group_name, group_fields):
@@ -198,6 +201,12 @@ if __name__ == "__main__":
     assert np.allclose(car_params_ref.a_lat_min / acc_scale_ref, car_params_sim.a_lat_min / acc_scale_sim)
     assert np.allclose(car_params_ref.a_long_max / acc_scale_ref, car_params_sim.a_long_max / acc_scale_sim)
     assert np.allclose(car_params_ref.a_long_min / acc_scale_ref, car_params_sim.a_long_min / acc_scale_sim)
+
+    # check the control rate limits
+    assert np.allclose(car_params_ref.dD_max * Mt.item(), car_params_sim.dD_max * mt.item())
+    assert np.allclose(car_params_ref.dD_min * Mt.item(), car_params_sim.dD_min * mt.item())
+    assert np.allclose(car_params_ref.ddelta_max * Mt.item(), car_params_sim.ddelta_max * mt.item())
+    assert np.allclose(car_params_ref.ddelta_min * Mt.item(), car_params_sim.ddelta_min * mt.item())
 
     compare_params(car_params_ref, car_params_sim)
 
