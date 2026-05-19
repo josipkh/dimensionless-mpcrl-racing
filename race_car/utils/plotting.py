@@ -54,7 +54,7 @@ def plot_Fxd_surface(car_params: CarParams):
         D_range: tuple (min_D, max_D)
         resolution: number of points for meshgrid
     """
-    default_v_max = 2.5  # [m/s] max speed for the small car
+    default_v_max = get_default_car_params().v_max.item()
     default_cr3 = get_default_car_params().cr3.item()
     v_max = default_v_max * default_cr3 / car_params.cr3.item()
     v_range = (0, v_max)
@@ -90,7 +90,7 @@ def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
     """
     Plots Fxd vs Throttle (D) for different fixed speeds (v).
     """
-    default_v_max = 2.5  # [m/s]
+    default_v_max = get_default_car_params().v_max.item()
     default_cr3 = get_default_car_params().cr3.item()
     v_max = default_v_max * default_cr3 / car_params.cr3.item()
 
@@ -121,71 +121,128 @@ def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
     plt.show(block=False)
 
 
-def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time: float, output_file: str | None = None):
-    """Plot the race track and the driven trajectory."""
-    # extract states from the log (shape nx x Nsim)
-    s = state_log[:,0]
-    n = state_log[:,1]
-    alpha = state_log[:,2]
-    v = state_log[:,3]
+def plot_results_track(
+    state_log: np.ndarray,
+    car_params: CarParams,
+    total_time: float,
+    output_file: str | None = None,
+    preview_log: np.ndarray | None = None,
+):
+    """Plot the race track and the driven trajectory.
+    
+    Args:
+        state_log:   Driven trajectory states, shape (Nsim, nx).
+        car_params:  Car parameters.
+        total_time:  Total lap time in seconds.
+        output_file: Optional path to save the figure.
+        preview_log: Optional MPC horizon preview, shape (N_horizon, nx).
+                     If provided, the predicted trajectory is overlaid on the track.
+    """
+    # extract states from the log (shape Nsim x nx)
+    s = state_log[:, 0]
+    n = state_log[:, 1]
+    alpha = state_log[:, 2]
+    v = state_log[:, 3]
+
     default_distance = 0.12  # [m] half of track width for the small car
-    distance = default_distance * car_params.l.item() / get_default_car_params().l.item()  # scale with car length
+    distance = default_distance * car_params.l.item() / get_default_car_params().l.item()
 
     # transform projection to global coordinates
     [x, y, _, _] = frenet2global(s=s, n=n, alpha=alpha, v=v, car_params=car_params)
-    [Sref, Xref, Yref, Psiref, _] = get_track(car_params)  # get track data
+    [Sref, Xref, Yref, Psiref, _] = get_track(car_params)
 
     # setup plot
-    ymin = np.min(Yref) - 5*car_params.l.item()
-    ymax = np.max(Yref) + 5*car_params.l.item()
-    xmin = np.min(Xref) - 5*car_params.l.item()
-    xmax = np.max(Xref) + 5*car_params.l.item()
+    ymin = np.min(Yref) - 5 * car_params.l.item()
+    ymax = np.max(Yref) + 5 * car_params.l.item()
+    xmin = np.min(Xref) - 5 * car_params.l.item()
+    xmax = np.max(Xref) + 5 * car_params.l.item()
+
     plt.figure()
-    plt.ylim(bottom=ymin,top=ymax)
-    plt.xlim(left=xmin,right=xmax)
+    plt.ylim(bottom=ymin, top=ymax)
+    plt.xlim(left=xmin, right=xmax)
     plt.ylabel('$y$ [m]')
     plt.xlabel('$x$ [m]')
     if total_time:
         plt.title("Lap time: {0:.2f} s".format(total_time))
 
-    # plot center line    
+    # plot center line
     plt.plot(Xref, Yref, '--', color='k')
 
+    # define the speed range
+    norm = matplotlib.colors.Normalize(vmin=0.0, vmax=car_params.v_max)
+
     # draw track boundaries
-    Xboundleft = Xref - distance*np.sin(Psiref)
-    Yboundleft = Yref + distance*np.cos(Psiref)
-    Xboundright = Xref + distance*np.sin(Psiref)
-    Yboundright = Yref - distance*np.cos(Psiref)
-    plt.plot(Xboundleft, Yboundleft, color='k', linewidth=1)
+    Xboundleft  = Xref - distance * np.sin(Psiref)
+    Yboundleft  = Yref + distance * np.cos(Psiref)
+    Xboundright = Xref + distance * np.sin(Psiref)
+    Yboundright = Yref - distance * np.cos(Psiref)
+    plt.plot(Xboundleft,  Yboundleft,  color='k', linewidth=1)
     plt.plot(Xboundright, Yboundright, color='k', linewidth=1)
-    plt.plot(x, y, '-b')
 
     # draw driven trajectory
-    heatmap = plt.scatter(x, y, c=v, cmap=cm.rainbow, edgecolor='none', marker='o')
+    plt.plot(x, y, '-b')
+    heatmap = plt.scatter(x, y, c=v, cmap=cm.rainbow, norm=norm, edgecolor='none', marker='o')
     cbar = plt.colorbar(heatmap, fraction=0.035)
     cbar.ax.set_title("   $v_x$ [m/s]")
+
+    # draw MPC preview if available
+    if preview_log is not None:
+        s_p     = preview_log[:, 0]
+        n_p     = preview_log[:, 1]
+        alpha_p = preview_log[:, 2]
+        v_p     = preview_log[:, 3]
+
+        [x_p, y_p, _, _] = frenet2global(s=s_p, n=n_p, alpha=alpha_p, v=v_p, car_params=car_params)
+
+        plt.plot(x_p, y_p, '-', color='orange', linewidth=1.2,
+                 alpha=0.7, zorder=3)  # label='MPC preview'
+
+        plt.scatter(
+            x_p, y_p,
+            c=v_p,
+            cmap=cm.rainbow,   # same colormap
+            norm=norm,         # same norm
+            edgecolor='none',
+            marker='o',
+            s=18,
+            alpha=0.85,
+            zorder=4,
+        )
+
+        # Mark the start and end of the horizon
+        plt.plot(x_p[0],  y_p[0],  's', color='orange',
+                 markersize=7, zorder=5, label='Horizon start')
+        plt.plot(x_p[-1], y_p[-1], '*', color='red',
+                 markersize=9, zorder=5, label='Horizon end')
+
+        # plt.legend(loc='upper right', fontsize=8)
+
     ax = plt.gca()
     ax.set_aspect('equal', 'box')
 
     # put markers for s values
     step_size = 15.5 * car_params.l.item()
-    n_steps = int(Sref[-1]/step_size) + 1
-    xi = np.zeros(n_steps)
-    yi = np.zeros(n_steps)
+    n_steps   = int(Sref[-1] / step_size) + 1
+    xi  = np.zeros(n_steps)
+    yi  = np.zeros(n_steps)
     xi1 = np.zeros(n_steps)
     yi1 = np.zeros(n_steps)
     xi2 = np.zeros(n_steps)
     yi2 = np.zeros(n_steps)
+
     for i in range(n_steps):
         try:
-            k = list(Sref).index(i*step_size + min(abs(Sref - i*step_size)))
+            k = list(Sref).index(i * step_size + min(abs(Sref - i * step_size)))
         except:
-            k = list(Sref).index(i*step_size - min(abs(Sref - i*step_size)))
+            k = list(Sref).index(i * step_size - min(abs(Sref - i * step_size)))
+
         _, nrefi, _, _ = global2frenet(Xref[k], Yref[k], Psiref[k], 0, car_params)
-        xi[i], yi[i], _, _ = frenet2global(Sref[k], nrefi + 2 * distance, 0, 0, car_params)
-        plt.text(xi[i], yi[i], '{} m'.format(int(i*step_size)), fontsize=12, horizontalalignment='center', verticalalignment='center')
-        xi1[i], yi1[i], _, _ = frenet2global(Sref[k], nrefi + distance, 0, 0, car_params)
-        xi2[i], yi2[i], _, _ = frenet2global(Sref[k], nrefi + 1.25 * distance, 0, 0, car_params)
+        xi[i],  yi[i],  _, _ = frenet2global(Sref[k], nrefi + 2.0 * distance,    0, 0, car_params)
+        xi1[i], yi1[i], _, _ = frenet2global(Sref[k], nrefi + distance,           0, 0, car_params)
+        xi2[i], yi2[i], _, _ = frenet2global(Sref[k], nrefi + 1.25 * distance,    0, 0, car_params)
+
+        plt.text(xi[i], yi[i], '{} m'.format(int(i * step_size)),
+                 fontsize=12, horizontalalignment='center', verticalalignment='center')
         plt.plot([xi1[i], xi2[i]], [yi1[i], yi2[i]], color='black')
 
     if hasattr(sys, 'ps1'):
@@ -193,24 +250,29 @@ def plot_results_track(state_log: np.ndarray, car_params: CarParams, total_time:
     else:
         plt.savefig(output_file or "plot_track.png")
         print(f"saved track plot to {output_file or 'plot_track.png'}")
+        plt.close()
 
 
-def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, output_file: str | None = None):
+def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None):
     """Plot the states and inputs over time, in a classic way."""
     plt.figure()
 
     plt.subplot(2, 1, 1)
     plt.plot(t, simX[:,:])
-    plt.ylabel('x')
-    plt.legend(['s','n','alpha','v','D','delta'])
+    plt.ylabel('$x$')
+    plt.legend(['$s$', '$n$', r'$\alpha$', '$v$', '$D$', r'$\delta$'])
     plt.grid(True)
 
     plt.subplot(2, 1, 2)
     plt.step(t, simU[:,0], color='r')
+    plt.plot([t[0], t[-1]], [car_params.dD_max, car_params.dD_max], 'r--', alpha=0.5, label='_nolegend_')
+    plt.plot([t[0], t[-1]], [car_params.dD_min, car_params.dD_min], 'r--', alpha=0.5, label='_nolegend_')
     plt.step(t, simU[:,1], color='g')
-    plt.legend(['dD','ddelta'])
-    plt.ylabel('u')
-    plt.xlabel('t [s]')
+    plt.plot([t[0], t[-1]], [car_params.ddelta_max, car_params.ddelta_max], 'g--', alpha=0.5, label='_nolegend_')
+    plt.plot([t[0], t[-1]], [car_params.ddelta_min, car_params.ddelta_min], 'g--', alpha=0.5, label='_nolegend_')
+    plt.legend([r'$\Delta D$', r'$\Delta\delta$'])
+    plt.ylabel('$u$')
+    plt.xlabel('$t$ [s]')
     plt.grid(True)
 
     if hasattr(sys, 'ps1'):
@@ -220,7 +282,7 @@ def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, outp
         print(f"saved classic plot to {output_file or 'plot_classic.png'}")
 
 
-def plot_lat_acc(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None):
+def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None):
     """Plot the lateral acceleration over time, with constraints."""
     Nsim = t.shape[0]
     plt.figure()
@@ -230,8 +292,8 @@ def plot_lat_acc(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_params: 
     plt.plot(t, alat)
     plt.plot([t[0], t[-1]], [car_params.a_lat_min, car_params.a_lat_min], 'k--')
     plt.plot([t[0], t[-1]], [car_params.a_lat_max, car_params.a_lat_max], 'k--')
-    plt.xlabel('t [s]')
-    plt.ylabel('ay [m/s^2]')
+    plt.xlabel('$t$ [s]')
+    plt.ylabel('$a_y$ [m/s$^2$]')
     plt.grid(True)
 
     if hasattr(sys, 'ps1'):
@@ -276,7 +338,7 @@ if __name__ == "__main__":
     plot_Fxd_vs_D_slices(car_params=car_params_sim)
 
     try:
-        npz_file = np.load("jkh_test/large_car_results.npz")
+        npz_file = np.load("jkh_test/small_car_results.npz")
         simX, simU, t = npz_file["simX"], npz_file["simU"], npz_file["t"]
 
         # test plotting with a partial log
@@ -285,10 +347,10 @@ if __name__ == "__main__":
         # simU = simU[:trunc_idx, :]
         # t = t[:trunc_idx]
 
-        plot_results_track(simX, car_params_sim, total_time=t[-1])
-        plot_results_classic(simX, simU, t)
-        plot_lat_acc(simX, simU, t, car_params_sim)
-    except:
+        plot_results_track(simX, car_params, total_time=t[-1])
+        plot_results_classic(simX, simU, t, car_params)
+        plot_lat_acc(simX, t, car_params)
+    except OSError:
         print("Specified log file could not be loaded, skipping result plots.")
 
     if plt.get_fignums():
