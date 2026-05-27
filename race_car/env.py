@@ -36,13 +36,11 @@ class RaceCarEnv(gym.Env):
         self.integrator = export_acados_integrator(car_params=car_params, dimensionless=False)
 
         # state and action bounds
-        v_max_dimensionless = 0.93  # corresponds to 3 [m/s] for the default car, from Fig. 1 in https://www.sciencedirect.com/science/article/pii/S2405896320317845
-        v_max = v_max_dimensionless * (car_params.l.item() / car_params.dt.item())  # [m/s]
         obs_ub = np.array([
             self.s_max,  # [m]
             car_params.n_max.item(),  # [m]
             np.pi/2,  # [rad] alpha max (heading error can be at most 90 degrees, otherwise the car would be driving backwards)
-            v_max,
+            car_params.v_max.item(),
             car_params.D_max.item(),
             car_params.delta_max.item()
         ], dtype=np.float32)
@@ -50,7 +48,7 @@ class RaceCarEnv(gym.Env):
             -0.1 * self.s_max,
             car_params.n_min.item(),
             -np.pi/2,
-            -0.1 * v_max,
+            -0.1 * car_params.v_max.item(),
             car_params.D_min.item(),
             car_params.delta_min.item()
         ], dtype=np.float32)
@@ -97,6 +95,7 @@ class RaceCarEnv(gym.Env):
         self.reset_needed = True
         self.s = None  # physical state
         self.previous_action = None
+        self.clip_counter = 0
 
         # For rendering
         if not (render_mode is None or render_mode in self.metadata["render_modes"]):
@@ -125,6 +124,7 @@ class RaceCarEnv(gym.Env):
         if not self.input_space.contains(np.array(u, dtype=np.float32)):
             u_clipped = True
             print("Clipping action")
+            self.clip_counter += 1
             u = np.clip(u, self.input_space.low, self.input_space.high)
 
         # simulate one time step
@@ -162,12 +162,15 @@ class RaceCarEnv(gym.Env):
         # check for truncation (out of bounds or timeout)
         out_of_bounds = not self.observation_space.contains(np.array(obs, dtype=np.float32))
         timeout = self.total_time > 500 * self.dt
-        if out_of_bounds or timeout:
+        too_many_clips = self.clip_counter > 100
+        if out_of_bounds or timeout or too_many_clips:
             if out_of_bounds:
                 # TODO: print which state is out of bounds and by how much
                 print(f"Episode truncated - out of bounds")
             if timeout:
                 print(f"Episode truncated - timeout")
+            if too_many_clips:
+                print(f"Episode truncated - too many clipped actions")
             trunc = True
             reward -= 100.0 * reward_scaling_factor
         else:
@@ -190,9 +193,11 @@ class RaceCarEnv(gym.Env):
         # start from standstill at the beginning of the track
         s0 = 0.0  # [m]
         self.s = np.array([s0, 0.0, 0.0, 0.0])
+
         self.previous_action = np.zeros((self.nu,))
         self.state_log = []
         self.total_time = 0.0
+        self.clip_counter = 0
 
         self.reset_needed = False        
 
@@ -259,9 +264,10 @@ class RaceCarEnv(gym.Env):
         ax.plot(Xboundright, Yboundright, color='k', linewidth=1)
         ax.plot(x, y, '-b')
 
-        heatmap = ax.scatter(x, y, c=v, cmap=cm.rainbow, edgecolor='none', marker='o')
+        norm = matplotlib.colors.Normalize(vmin=0.0, vmax=self.car_params.v_max)
+        heatmap = ax.scatter(x, y, c=v, cmap=cm.rainbow, norm=norm, edgecolor='none', marker='o')
         cbar = fig.colorbar(heatmap, ax=ax, fraction=0.035)
-        cbar.set_label("velocity in [m/s]")
+        cbar.ax.set_title("   $v_x$ [m/s]")
 
         # --- Convert matplotlib figure → numpy array → pygame surface ---
         buf = io.BytesIO()

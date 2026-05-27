@@ -22,11 +22,6 @@ def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
     # load track parameters
     [sref, _, _, _, kapparef] = get_track(car_params=car_params)
 
-    # make dimensionless if needed -> automatically done in nondimensionalize_dynamics()
-    # if dimensionless:
-    #     sref /= car_params.l.item()
-    #     kapparef *= car_params.l.item()
-
     # copy loop to beginning and end
     length = len(sref)
     sref = np.append(sref, [sref[length - 1] + sref[1:length]])

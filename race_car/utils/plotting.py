@@ -183,7 +183,7 @@ def plot_results_track(
     plt.plot(x, y, '-b')
     heatmap = plt.scatter(x, y, c=v, cmap=cm.rainbow, norm=norm, edgecolor='none', marker='o')
     cbar = plt.colorbar(heatmap, fraction=0.035)
-    cbar.ax.set_title("   $v_x$ [m/s]")
+    cbar.ax.set_title("   $v_x$ [m/s]", y=1.025)
 
     # draw MPC preview if available
     if preview_log is not None:
@@ -242,7 +242,7 @@ def plot_results_track(
         xi2[i], yi2[i], _, _ = frenet2global(Sref[k], nrefi + 1.25 * distance,    0, 0, car_params)
 
         plt.text(xi[i], yi[i], '{} m'.format(int(i * step_size)),
-                 fontsize=12, horizontalalignment='center', verticalalignment='center')
+                 fontsize=10, horizontalalignment='center', verticalalignment='center')
         plt.plot([xi1[i], xi2[i]], [yi1[i], yi2[i]], color='black')
 
     if hasattr(sys, 'ps1'):

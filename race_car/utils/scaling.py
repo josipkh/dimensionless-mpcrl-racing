@@ -94,8 +94,9 @@ def get_similar_car_params(
     new_params.slack_acc_linear = reference_params.slack_acc_linear * mtcr3 / MtCr3
     new_params.slack_acc_quadratic = reference_params.slack_acc_quadratic * (mtcr3 / MtCr3)**2
 
-    # match the top speed
+    # match the top speed and the terminal progress reference
     new_params.v_max = reference_params.v_max * reference_params.dt.item() / reference_params.l.item() * new_params.l.item() / new_params.dt.item()
+    new_params.s_ref_N = reference_params.s_ref_N * new_params.l.item() / reference_params.l.item()
 
     return new_params
 
@@ -120,7 +121,7 @@ def compare_params(car1: CarParams, car2: CarParams):
     # Define parameter groups by field names
     chassis_fields = ['m', 'l', 'lr']
     force_fields = ['cm1', 'cm2', 'cr0', 'cr2', 'cr3']
-    controller_fields = ['dt', 'gamma', 'v_max']
+    controller_fields = ['dt', 'gamma', 'v_max', 's_ref_N']
 
     # Helper to print groups side by side
     def print_group(group_name, group_fields):
@@ -207,6 +208,8 @@ if __name__ == "__main__":
     assert np.allclose(car_params_ref.dD_min * Mt.item(), car_params_sim.dD_min * mt.item())
     assert np.allclose(car_params_ref.ddelta_max * Mt.item(), car_params_sim.ddelta_max * mt.item())
     assert np.allclose(car_params_ref.ddelta_min * Mt.item(), car_params_sim.ddelta_min * mt.item())
+
+    assert np.allclose(car_params_ref.s_ref_N.item() / car_params_ref.l.item(), car_params_sim.s_ref_N.item() / car_params_sim.l.item())
 
     compare_params(car_params_ref, car_params_sim)
 

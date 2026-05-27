@@ -55,10 +55,11 @@ class CarParams:
     N: np.ndarray           # prediction horizon (number of steps)
 
     v_max: np.ndarray       # maximum long. speed [m/s] (approximate)
+    s_ref_N: np.ndarray     # terminal progress reference [m]
 
 
 def get_default_car_params() -> CarParams:
-    """Parameter values in the original example."""
+    """Parameter values based on the original example (notes when modified)."""
     return CarParams(
         m=np.array([0.043]),
         l=np.array([1/15.5]),
@@ -139,6 +140,7 @@ def get_default_car_params() -> CarParams:
         N=np.array([50]),
 
         v_max=np.array([2.5]),
+        s_ref_N = np.array([3.0]),
     )
 
 
