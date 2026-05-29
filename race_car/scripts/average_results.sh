@@ -13,5 +13,7 @@ fi
 for SUBFOLDER in $(ls "$TOP_FOLDER")
 do
   echo "processing $TOP_FOLDER/$SUBFOLDER"
-  tb-reducer "$TOP_FOLDER/$SUBFOLDER"/* -o "$TOP_FOLDER/$SUBFOLDER"/ -r mean,std,min,max --overwrite
+  tb-reducer "$TOP_FOLDER/$SUBFOLDER"/* -o "$TOP_FOLDER/$SUBFOLDER"/ -r mean,std,min,max --overwrite --handle-dup-steps mean
+  # --handle-dup-steps resolves the situation with two values for the same timestep
+  # (occurs when continuing the training with current settings)
 done

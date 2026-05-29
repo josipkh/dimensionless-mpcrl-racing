@@ -123,7 +123,6 @@ class RaceCarEnv(gym.Env):
         u_clipped = False
         if not self.input_space.contains(np.array(u, dtype=np.float32)):
             u_clipped = True
-            print("Clipping action")
             self.clip_counter += 1
             u = np.clip(u, self.input_space.low, self.input_space.high)
 

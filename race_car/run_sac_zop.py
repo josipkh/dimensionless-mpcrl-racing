@@ -1,11 +1,12 @@
-"""Main script to run SAC-ZOP experiments."""
+"""Script to run SAC-ZOP (MPC is effectively part of the environment) with the race car example."""
 
-from typing import Literal
 from pathlib import Path
 import time
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
 from tempfile import mkdtemp
+import os
+import shutil
 
 from leap_c.run import default_output_path, init_run
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
@@ -18,10 +19,7 @@ from race_car.utils.log_utils import tee_logging
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
 
-def create_cfg(
-    seed: int,
-    ckpt_modus: Literal["best", "last", "all", "none"] = "last",
-) -> SacZopTrainerConfig:
+def create_cfg(seed: int) -> SacZopTrainerConfig:
     # ---- Configuration ----
     cfg = SacZopTrainerConfig()
 
@@ -35,7 +33,7 @@ def create_cfg(
     cfg.val_num_render_rollouts = 1
     cfg.val_render_mode = "rgb_array"
     cfg.val_report_score = "cum"
-    cfg.ckpt_modus = ckpt_modus
+    cfg.ckpt_modus = "last"
     cfg.batch_size = 64
     cfg.buffer_size = 500_000
     cfg.gamma = 0.99
@@ -52,7 +50,7 @@ def create_cfg(
 
     # ---- Section: cfg.log ----
     cfg.log.verbose = True
-    cfg.log.interval = 1000
+    cfg.log.interval = 1_000
     cfg.log.window = 10_000
     cfg.log.csv_logger = True
     cfg.log.tensorboard_logger = True
@@ -73,16 +71,17 @@ def create_cfg(
 
     # ---- Section: cfg.actor.mlp ----
     # cfg.actor.mlp.hidden_dims = (256, 256, 256)
+    # cfg.actor.mlp.activation = "relu"
+    # cfg.actor.mlp.weight_init = "orthogonal"
     cfg.actor.mlp.hidden_dims = None
-    cfg.actor.mlp.activation = "relu"
-    cfg.actor.mlp.weight_init = "orthogonal"
 
     return cfg
 
 
 if __name__ == "__main__":
 
-    keep_output = False  # only relevant if running this file directly
+    keep_output = False  # only relevant if running this file directly, bash script always saves the output
+    use_pretrained = False
 
     parser = ArgumentParser()
     parser.add_argument("--size", type=str, default="default")  # "default" or "large"
@@ -106,11 +105,24 @@ if __name__ == "__main__":
     if args.timestamp:
         dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
-        output_path = f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}"
-        output_path = Path(output_path)
+        output_path = Path(f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}")
     else:
         output_path = default_output_path(args.seed, tags=tags) if keep_output else Path(mkdtemp())
     output_path.mkdir(parents=True, exist_ok=True)
+
+    if use_pretrained:
+        pretrained_path = Path(f"output/pretrained_critic/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}")
+
+        # copy just the checkpoints (without optimizers and trainer state)
+        # checkpoints_path = pretrained_path / "ckpts"
+        # shutil.copytree(checkpoints_path, output_path / "ckpts", dirs_exist_ok=True)
+        # os.remove(output_path / "ckpts/last_optimizers.ckpt")
+        # os.remove(output_path / "ckpts/last_trainer_state.ckpt")
+
+        # copy just the critic checkpoints
+        os.makedirs(output_path / "ckpts", exist_ok=True)
+        shutil.copy(pretrained_path / "ckpts/last_q.ckpt", output_path / "ckpts/last_q.ckpt")
+        shutil.copy(pretrained_path / "ckpts/last_q_target.ckpt", output_path / "ckpts/last_q_target.ckpt")
 
     log_git_hash_and_diff(output_path / "my_git_diff.txt", Path(race_car.__path__[0]).parent)  # save the git diff for this repo as well
 

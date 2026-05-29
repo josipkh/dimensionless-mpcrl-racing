@@ -106,19 +106,16 @@ if __name__ == "__main__":
     else:
         raise ValueError("Please specify the car size with --size (e.g. --size default)")
     
-    # car_params = get_default_car_params_tracking()
-    # args.dimensionless = True
-    
     tags = ["baseline", args.size, "dimensionless" if args.dimensionless else "dimensional"]
     if args.timestamp:
         dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
-        output_path = f"output/{timestamp_formatted}_baseline_seed_{seed}/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}"
+        output_path = Path(f"output/{timestamp_formatted}_baseline/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}")
     else:
-        output_path = default_output_path(seed, tags=tags) if keep_output else str(Path(mkdtemp()))
-    Path(output_path).mkdir(parents=True, exist_ok=True)
+        output_path = default_output_path(seed, tags=tags) if keep_output else Path(mkdtemp())
+    output_path.mkdir(parents=True, exist_ok=True)
 
-    with tee_logging(Path(output_path)):
+    with tee_logging(output_path):
         t_start = time.monotonic()
         print(f"Running baseline with the {args.size} car, dimensionless={args.dimensionless}, seed={seed}")
         env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=render_mode)
