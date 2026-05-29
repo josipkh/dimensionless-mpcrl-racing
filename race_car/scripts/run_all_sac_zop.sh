@@ -2,7 +2,7 @@
 # Run all 4 combinations of size x dimensionless x 5 seeds in separate tmux sessions
 # Sessions can be listed with: tmux ls
 # Attach to a session with: tmux attach -t <session_name>
-SCRIPT="PYTHONPATH=$(pwd) python race_car/run_sac_zop.py"
+SCRIPT="PYTHONPATH=$(pwd) python race_car/scripts/run_sac_zop.py"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 declare -A RUNS=(
     ["default_dimensional"]="--size default"

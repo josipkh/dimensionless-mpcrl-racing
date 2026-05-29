@@ -2,7 +2,7 @@
 # Run all 4 combinations of size x dimensionless in separate tmux sessions
 # Sessions can be listed with: tmux ls
 # Attach to a session with: tmux attach -t <session_name>
-SCRIPT="PYTHONPATH=$(pwd) python race_car/run_controller.py"
+SCRIPT="PYTHONPATH=$(pwd) python race_car/scripts/run_controller.py"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 declare -A RUNS=(
     ["default_dimensional"]="--size default"
