@@ -200,7 +200,7 @@ def export_acados_ocp_solver(car_params: CarParams, dimensionless: bool) -> Acad
     """Creates an OCP solver based on the car parameters."""
     acados_ocp = export_ocp(car_params=car_params, dimensionless=dimensionless)
     acados_ocp_solver = AcadosOcpSolver(
-        acados_ocp=acados_ocp, 
+        ocp=acados_ocp, 
         verbose=False,
         json_file=os.path.join(
             "json", 
@@ -245,8 +245,8 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool):
     sref_N = 46.5 * (car_params.l.item() if not dimensionless else 1.0)  # terminal progress reference ("carrot")
 
     # preallocate memory for logging
-    nx = acados_ocp_solver.acados_ocp.model.x.rows()
-    nu = acados_ocp_solver.acados_ocp.model.u.rows()
+    nx = acados_ocp_solver.ocp.model.x.rows()
+    nu = acados_ocp_solver.ocp.model.u.rows()
     Nsim = 500  # from the original example
     simX = np.zeros((Nsim, nx))
     simU = np.zeros((Nsim, nu))
@@ -257,7 +257,7 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool):
     n_solver_fails = 0
 
     # closed-loop simulation
-    N = acados_ocp_solver.acados_ocp.solver_options.N_horizon
+    N = acados_ocp_solver.ocp.solver_options.N_horizon
     for i in range(Nsim-1):
         # set the initial condition
         acados_ocp_solver.constraints_set(0, "lbx", dim2nondim_x(simX[i, :]))
@@ -325,8 +325,8 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool):
 
     # plot the results
     t = np.linspace(0.0, Nsim * car_params.dt.item(), Nsim)
-    plot_results_classic(simX, simU, t)
-    plot_lat_acc(simX, simU, t, car_params)
+    plot_results_classic(simX, simU, t, car_params)
+    plot_lat_acc(simX, t, car_params)
     plot_results_track(simX, car_params, t[-1])
 
 
@@ -396,8 +396,8 @@ def compare_formulation(car_params: CarParams, solver: str):
     print("n_iter dimensionless: ", n_iter_dimensionless)
 
     fig, axes = plt.subplots(8, 1, sharex=True, constrained_layout=True)
-    x_labels = ocp_solver_dimensional.ocp.model.x_labels if solver == "ipopt" else ocp_solver_dimensional.acados_ocp.model.x_labels
-    u_labels = ocp_solver_dimensional.ocp.model.u_labels if solver == "ipopt" else ocp_solver_dimensional.acados_ocp.model.u_labels
+    x_labels = ocp_solver_dimensional.ocp.model.x_labels if solver == "ipopt" else ocp_solver_dimensional.ocp.model.x_labels
+    u_labels = ocp_solver_dimensional.ocp.model.u_labels if solver == "ipopt" else ocp_solver_dimensional.ocp.model.u_labels
     labels = ["dimensional", "dimensionless"]
     states_list = [x_dimensional, x_dimensionless]
     controls_list = [u_dimensional, u_dimensionless]

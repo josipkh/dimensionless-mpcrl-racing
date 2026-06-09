@@ -1,4 +1,3 @@
-
 """Utility functions for loading track data and coordinate transformations (Frenet <-> global)."""
 import os
 from pathlib import Path
@@ -29,7 +28,7 @@ def get_track(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray
     # the track is defined for the small car
     # we need to scale it with the given car size
     default_car_length = get_default_car_params().l.item()
-    current_car_length = car_params.l.item()
+    current_car_length = car_params.l[0]
     scaling_factor = current_car_length / default_car_length
     sref *= scaling_factor
     xref *= scaling_factor
@@ -152,6 +151,3 @@ if __name__ == "__main__":
     assert np.allclose(v, v2)
 
     print("ok")
-
-
-
