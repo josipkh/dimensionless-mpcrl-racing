@@ -1,7 +1,8 @@
 """Utility functions for plotting."""
 import sys
 import matplotlib
-if not hasattr(sys, 'ps1'):
+import os
+if not "DISPLAY" in os.environ:
     matplotlib.use('Agg')  # Non-interactive backend
 
 import casadi as ca
@@ -245,7 +246,7 @@ def plot_results_track(
                  fontsize=10, horizontalalignment='center', verticalalignment='center')
         plt.plot([xi1[i], xi2[i]], [yi1[i], yi2[i]], color='black')
 
-    if hasattr(sys, 'ps1'):
+    if "DISPLAY" in os.environ:
         plt.show(block=False)
     else:
         plt.savefig(output_file or "plot_track.png")
@@ -255,7 +256,7 @@ def plot_results_track(
 
 def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None):
     """Plot the states and inputs over time, in a classic way."""
-    plt.figure()
+    fig = plt.figure()
 
     plt.subplot(2, 1, 1)
     plt.plot(t, simX[:,:])
@@ -274,15 +275,16 @@ def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_
     plt.ylabel('$u$')
     plt.xlabel('$t$ [s]')
     plt.grid(True)
+    fig.align_ylabels()
 
-    if hasattr(sys, 'ps1'):
+    if "DISPLAY" in os.environ:
         plt.show(block=False)
     else:
         plt.savefig(output_file or "plot_classic.png")
         print(f"saved classic plot to {output_file or 'plot_classic.png'}")
 
 
-def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None):
+def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None) -> None:
     """Plot the lateral acceleration over time, with constraints."""
     Nsim = t.shape[0]
     plt.figure()
@@ -296,14 +298,14 @@ def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_
     plt.ylabel('$a_y$ [m/s$^2$]')
     plt.grid(True)
 
-    if hasattr(sys, 'ps1'):
+    if "DISPLAY" in os.environ:
         plt.show(block=False)
     else:
         plt.savefig(output_file or "plot_lat_acc.png")
         print(f"saved lateral acceleration plot to {output_file or 'plot_lat_acc.png'}")
 
 
-def calculate_acc(x, car_params):
+def calculate_acc(x: np.ndarray, car_params: CarParams) -> np.ndarray:
     m = car_params.m[0]
     c1 = car_params.lr[0] / car_params.l[0]
     c2 = 1 / car_params.l[0]
@@ -328,17 +330,17 @@ if __name__ == "__main__":
     car_params = get_default_car_params()
     car_params_sim = get_large_car_params()
 
-    plot_track(car_params=car_params)
-    plot_track(car_params=car_params_sim)
+    # plot_track(car_params=car_params)
+    # plot_track(car_params=car_params_sim)
 
-    plot_Fxd_surface(car_params=car_params)
-    plot_Fxd_surface(car_params=car_params_sim)
+    # plot_Fxd_surface(car_params=car_params)
+    # plot_Fxd_surface(car_params=car_params_sim)
 
-    plot_Fxd_vs_D_slices(car_params=car_params)
-    plot_Fxd_vs_D_slices(car_params=car_params_sim)
+    # plot_Fxd_vs_D_slices(car_params=car_params)
+    # plot_Fxd_vs_D_slices(car_params=car_params_sim)
 
     try:
-        npz_file = np.load("jkh_test/small_car_results.npz")
+        npz_file = np.load("race_car/jkh_test/small_car_results.npz")
         simX, simU, t = npz_file["simX"], npz_file["simU"], npz_file["t"]
 
         # test plotting with a partial log
