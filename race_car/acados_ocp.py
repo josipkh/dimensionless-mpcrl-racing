@@ -224,7 +224,7 @@ def export_acados_casadi_ocp_solver(car_params: CarParams, dimensionless: bool) 
     return acados_casadi_ocp_solver
 
 
-def test_closed_loop(car_params: CarParams, dimensionless: bool):
+def test_closed_loop(car_params: CarParams, dimensionless: bool) -> tuple[np.ndarray, np.ndarray]:
     """Runs a closed-loop simulation with the given car parameters."""
     acados_ocp_solver = export_acados_ocp_solver(car_params=car_params, dimensionless=dimensionless)
 
@@ -328,6 +328,8 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool):
     plot_results_classic(simX, simU, t, car_params)
     plot_lat_acc(simX, t, car_params)
     plot_results_track(simX, car_params, t[-1])
+
+    return simX, simU
 
 
 def compare_iterates(it1: AcadosOcpIterate, it2: AcadosOcpIterate,
@@ -453,12 +455,23 @@ def compare_formulation(car_params: CarParams, solver: str):
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params
-
-    car_params = get_default_car_params()
+    from race_car.utils.config import get_default_car_params, get_large_car_params
 
     # compare_formulation(car_params, solver="ipopt")
-    test_closed_loop(car_params=car_params, dimensionless=True)
+    x_default, u_default = test_closed_loop(car_params=get_default_car_params(), dimensionless=True)
+    x_large, u_large = test_closed_loop(car_params=get_large_car_params(), dimensionless=True)
+
+    Mx_default, Mu_default, _ = get_transformation_matrices(car_params=get_default_car_params())
+    Mx_large, Mu_large, _ = get_transformation_matrices(car_params=get_large_car_params())
+    x_default_dimensionless = x_default @ np.linalg.inv(Mx_default)
+    u_default_dimensionless = u_default @ np.linalg.inv(Mu_default)
+    x_large_dimensionless = x_large @ np.linalg.inv(Mx_large)
+    u_large_dimensionless = u_large @ np.linalg.inv(Mu_large)
+
+    min_rows = min(x_default_dimensionless.shape[0], x_large_dimensionless.shape[0])
+    assert np.allclose(x_default_dimensionless[:min_rows, :], x_large_dimensionless[:min_rows, :])
+    assert np.allclose(u_default_dimensionless[:min_rows, :], u_large_dimensionless[:min_rows, :])
+    print("Results match")
 
     if plt.get_fignums():
         input("Press Enter to continue...")  # keep the plots open

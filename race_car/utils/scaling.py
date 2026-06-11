@@ -17,17 +17,18 @@ def get_cost_matrices(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np
 
 def get_transformation_matrices(
     car_params: CarParams,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray | ca.SX, np.ndarray | ca.SX, np.ndarray | ca.SX]:
     """Returns the matrices for transforming the system to a non-dimensional form."""
     # s(physical) = Ms * s(dimensionless)
-    l = car_params.l.item()  # length of the pole
-    cr3 = car_params.cr3.item()  # [s/m] speed coefficient
+    l = car_params.l[0]  # length of the pole
+    cr3 = car_params.cr3[0]  # [s/m] speed coefficient
 
+    # seems like this works with CasADi symbolic too
     Mx = np.diag([l, l, 1.0, 1/cr3, 1.0, 1.0])  # states include the control inputs
     Mu = np.diag([1.0 / (l * cr3), 1.0 / (l * cr3)])  # inputs are rate of change of controls
-    Mt = np.diag([cr3 * l])
+    mt = np.diag([cr3 * l])
 
-    return Mx, Mu, Mt
+    return Mx, Mu, mt
 
 
 def get_similar_car_params(
@@ -101,17 +102,17 @@ def get_similar_car_params(
     return new_params
 
 
-def get_pi_groups(car_params: CarParams) -> tuple[float, float]:
-    """Returns the pi-groups for the given car."""
-    m = car_params.m.item()
-    l = car_params.l.item()
-    cr3 = car_params.cr3.item()
+def get_pi_groups(car_params: CarParams) -> tuple[float | ca.SX, float | ca.SX]:
+    """Returns the pi-groups for the race car (symbolic or numeric)."""
+    m = car_params.m[0]
+    l = car_params.l[0]
+    cr3 = car_params.cr3[0]
 
-    pi_1 = car_params.lr.item() / l
-    pi_2 = car_params.cm1.item() * l * cr3**2 / m
-    pi_3 = car_params.cm2.item() * l * cr3 / m
-    pi_4 = car_params.cr0.item() * l * cr3**2 / m
-    pi_5 = car_params.cr2.item() * l / m
+    pi_1 = car_params.lr[0] / l
+    pi_2 = car_params.cm1[0] * l * cr3**2 / m
+    pi_3 = car_params.cm2[0] * l * cr3 / m
+    pi_4 = car_params.cr0[0] * l * cr3**2 / m
+    pi_5 = car_params.cr2[0] * l / m
 
     return np.array([pi_1, pi_2, pi_3, pi_4, pi_5])
 

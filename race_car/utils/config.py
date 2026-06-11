@@ -4,33 +4,35 @@ from dataclasses import dataclass
 
 import gymnasium as gym
 import numpy as np
+import casadi as ca
+
 from leap_c.ocp.acados.parameters import AcadosParameter
 
 
 @dataclass(kw_only=True)
 class CarParams:
     # Chassis parameters
-    m: np.ndarray         # [kg] mass of the car
-    l: np.ndarray         # [m] length of the car
-    lr: np.ndarray        # [m] distance from CG to rear axle
+    m: np.ndarray   # [kg] mass of the car
+    l: np.ndarray   # [m] length of the car
+    lr: np.ndarray  # [m] distance from CG to rear axle
 
     # Longitudinal force parameters (eq. 4)
-    cm1: np.ndarray       # [kgm/s^2] 
-    cm2: np.ndarray       # [kg/s]
-    cr0: np.ndarray       # [kgm/s^2]
-    cr2: np.ndarray       # [kg/m]
-    cr3: np.ndarray       # [s/m]
+    cm1: np.ndarray  # [kgm/s^2] 
+    cm2: np.ndarray  # [kg/s]
+    cr0: np.ndarray  # [kgm/s^2]
+    cr2: np.ndarray  # [kg/m]
+    cr3: np.ndarray  # [s/m]
 
     # Cost weight matrices, defined by the decimal logarithm of their diagonal entries
-    q_diag_log: np.ndarray     # stage cost, state residuals
-    r_diag_log: np.ndarray     # stage cost, input residuals
-    qe_diag_log: np.ndarray    # terminal cost, state residuals
+    q_diag_log: np.ndarray   # stage cost, state residuals
+    r_diag_log: np.ndarray   # stage cost, input residuals
+    qe_diag_log: np.ndarray  # terminal cost, state residuals
 
     # Slack cost weights
-    slack_n_linear: np.ndarray          # linear cost on the position constraint [1/m]
-    slack_n_quadratic: np.ndarray       # quadratic cost on the position constraint [1/m^2]
-    slack_acc_linear: np.ndarray        # linear cost on the acceleration constraint [1/(m/s^2)]
-    slack_acc_quadratic: np.ndarray     # quadratic cost on the acceleration constraint [1/(m/s^2)^2]
+    slack_n_linear: np.ndarray       # linear cost on the position constraint [1/m]
+    slack_n_quadratic: np.ndarray    # quadratic cost on the position constraint [1/m^2]
+    slack_acc_linear: np.ndarray     # linear cost on the acceleration constraint [1/(m/s^2)]
+    slack_acc_quadratic: np.ndarray  # quadratic cost on the acceleration constraint [1/(m/s^2)^2]
 
     # Constraints
     a_lat_max: np.ndarray   # maximum lateral acceleration [m/s^2]
@@ -56,6 +58,19 @@ class CarParams:
 
     v_max: np.ndarray       # maximum long. speed [m/s] (approximate)
     s_ref_N: np.ndarray     # terminal progress reference [m]
+
+
+@dataclass(kw_only=True)
+class SymbolicCarParams:
+    """Symbolic model variables, for definining purely dimensionless dynamics."""
+    m: ca.SX = ca.SX.sym("m")
+    l: ca.SX = ca.SX.sym("l")
+    lr: ca.SX = ca.SX.sym("lr")
+    cm1: ca.SX = ca.SX.sym("cm1")
+    cm2: ca.SX = ca.SX.sym("cm2")
+    cr0: ca.SX = ca.SX.sym("cr0")
+    cr2: ca.SX = ca.SX.sym("cr2")
+    cr3: ca.SX = ca.SX.sym("cr3")
 
 
 def get_default_car_params() -> CarParams:
@@ -291,5 +306,7 @@ if __name__ == "__main__":
     create_acados_params(car_params=get_large_car_params(), dimensionless=False)
     create_acados_params(car_params=get_default_car_params_tracking(), dimensionless=False),
     create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=False)
+
+    SymbolicCarParams()
 
     print("ok")
