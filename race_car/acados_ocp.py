@@ -116,10 +116,9 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.sim_method_num_stages = 4
     ocp.solver_options.sim_method_num_steps = 3
-    ocp.solver_options.nlp_solver_max_iter = 100
-    ocp.solver_options.tol = 1e-4
-
-    ocp.solver_options.nlp_solver_tol_stat = 1e-1  # stationarity residuals don't converge if this is lower
+    ocp.solver_options.nlp_solver_tol_stat = 1e-1  # stationarity residuals sometimes don't converge if this is lower
+    
+    # additional settings for debugging (TODO: remove)
     # ocp.solver_options.globalization = "FUNNEL_L1PEN_LINESEARCH"  # "MERIT_BACKTRACKING"  # add step correction
     # ocp.solver_options.globalization_full_step_dual = True  # when using funnel globalization
     # ocp.solver_options.print_level = 1  # to display iterate information
@@ -276,7 +275,6 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool) -> tuple[np.nda
         status = acados_ocp_solver.solve()
         if status != 0:
             print("acados returned status {} in closed loop iteration {}.".format(status, i))
-            # raise RuntimeError
             # plot_results_track(state_log=simX[:i,:],car_params=car_params,total_time=0.0)
             # plot_results_classic(simX=simX[:i,:], simU=simU[:i,:], t=list(range(i)))
             n_solver_fails += 1
