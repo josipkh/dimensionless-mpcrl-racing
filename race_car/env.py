@@ -2,6 +2,7 @@
 
 import gymnasium as gym
 import numpy as np
+from tqdm import tqdm
 
 from race_car.model import export_acados_integrator
 from race_car.utils.config import CarParams, get_default_car_params
@@ -19,6 +20,7 @@ class RaceCarEnv(gym.Env):
         dimensionless: bool = True,
         mpc_car_params: CarParams | None = None,
         render_mode: str | None = None,
+        verbose: bool = True,
     ):
         if mpc_car_params is None:
             print("MPC car parameters not provided, using the same as in the env.")
@@ -108,6 +110,7 @@ class RaceCarEnv(gym.Env):
         self.window = None
         self.clock = None
 
+        self.verbose = verbose
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """Execute the dynamics of the race car."""
@@ -163,13 +166,14 @@ class RaceCarEnv(gym.Env):
         timeout = self.total_time > 500 * self.dt
         too_many_clips = self.clip_counter > 100
         if out_of_bounds or timeout or too_many_clips:
-            if out_of_bounds:
-                # TODO: print which state is out of bounds and by how much
-                print(f"Episode truncated - out of bounds")
-            if timeout:
-                print(f"Episode truncated - timeout")
-            if too_many_clips:
-                print(f"Episode truncated - too many clipped actions")
+            if self.verbose:
+                if out_of_bounds:
+                    # TODO: print which state is out of bounds and by how much
+                    print(f"Episode truncated - out of bounds")
+                if timeout:
+                    print(f"Episode truncated - timeout")
+                if too_many_clips:
+                    print(f"Episode truncated - too many clipped actions")
             trunc = True
             reward -= 100.0 * reward_scaling_factor
         else:
@@ -310,14 +314,16 @@ if __name__ == "__main__":
     env_ref = RaceCarEnv(
         car_params=params_ref,
         dimensionless=dimensionless,
-        mpc_car_params=params_ref
+        mpc_car_params=params_ref,
+        verbose=False
     )
 
     params_sim = get_large_car_params()
     env_sim = RaceCarEnv(
         car_params=params_sim,
         dimensionless=dimensionless,
-        mpc_car_params=params_sim
+        mpc_car_params=params_sim,
+        verbose=False
     )
 
     seed = 0
@@ -336,7 +342,7 @@ if __name__ == "__main__":
     obs_ref_log.append(obs_ref)
     obs_sim_log.append(obs_sim)
     act_log = []
-    for _ in range(10):
+    for i in tqdm(range(10000), desc="Running envs with random actions"):
         action = env_ref.action_space.sample()
         obs_ref, reward_ref, done_ref, truncated_ref, info_ref = env_ref.step(action)
         obs_sim, reward_sim, done_sim, truncated_sim, info_sim = env_sim.step(action)
@@ -345,7 +351,6 @@ if __name__ == "__main__":
             seed += 1
             env_ref.reset(seed=seed)
             env_sim.reset(seed=seed)
-            print("reset")
 
         obs_ref_log.append(obs_ref)
         obs_sim_log.append(obs_sim)
