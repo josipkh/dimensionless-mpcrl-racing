@@ -2,7 +2,7 @@ from pathlib import Path
 from contextlib import contextmanager
 import sys
 import os, shutil, atexit, tempfile
-from acados_template import AcadosOcp
+from acados_template import AcadosOcp, AcadosSim
 
 class Tee:
     """Mirrors writes to both a file and the original stream."""
@@ -50,10 +50,10 @@ def tee_logging(output_path: Path):
             sys.stderr = tee_err._stream
 
 
-def create_acados_temp_dir(ocp: AcadosOcp) -> str:
+def create_acados_temp_dir(ocp: AcadosOcp | AcadosSim) -> str:
     """Creates a temporary directory for acados files, which is automatically cleaned up."""
     temp_dir = tempfile.mkdtemp(prefix="acados_")
     atexit.register(shutil.rmtree, temp_dir, ignore_errors=True)
 
     ocp.code_gen_opts.code_export_directory = os.path.join(temp_dir, "codegen")
-    return os.path.join(temp_dir, "acados_ocp.json")
+    return os.path.join(temp_dir, "acados_data.json")

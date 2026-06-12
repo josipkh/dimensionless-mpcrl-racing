@@ -15,6 +15,7 @@ from race_car.utils.config import CarParams, SymbolicCarParams, get_default_car_
 from race_car.utils.scaling import get_transformation_matrices, get_pi_groups
 from race_car.utils.track import get_track
 from race_car.utils.symbolics import casadi2sympy, sympy2casadi
+from race_car.utils.log_utils import create_acados_temp_dir
 
 include_terminal_acc_constraint = True  # not used in the original example
 
@@ -182,21 +183,14 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
     acados_sim.solver_options.sens_forw = False  # we don't need this information for simulations
 
     # assign a random directory to prevent overwriting
-    export_directory = str(Path(mkdtemp(prefix="jkh_acados_")))
-    acados_sim.code_gen_opts.code_export_directory = os.path.join(export_directory, "codegen")
-    json_file = os.path.join(export_directory, "sim_model.json")
-    # export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))
-    # json_file = os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")    
-    print("Setting up acados integrator...")
+    json_file = create_acados_temp_dir(acados_sim)
 
+    print("Setting up acados integrator...")
     acados_sim_solver = AcadosSimSolver(
         acados_sim=acados_sim, 
         verbose=False,
         json_file=json_file,
     )
-    
-    # schedule folder deletion after the program finishes
-    DeleteDirectoryHook(acados_sim_solver, export_directory)
 
     return acados_sim_solver
 
