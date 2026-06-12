@@ -242,7 +242,7 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool) -> tuple[np.nda
 
     # get the track data
     s_max = get_track(car_params)[0][-1]  # total track length
-    sref_N = 46.5 * (car_params.l.item() if not dimensionless else 1.0)  # terminal progress reference ("carrot")
+    sref_N = car_params.s_ref_N.item() / (car_params.l.item() if dimensionless else 1.0)  # terminal progress reference ("carrot")
 
     # preallocate memory for logging
     nx = acados_ocp_solver.ocp.model.x.rows()
@@ -265,10 +265,9 @@ def test_closed_loop(car_params: CarParams, dimensionless: bool) -> tuple[np.nda
 
         # update reference (progress along centerline)
         s0 = dim2nondim_x(simX[i, :])[0]  # current track progress
-        for j in range(1, N):  # for the intermediate stages
-            yref = np.array([s0 + sref_N * j / N, 0, 0, 0, 0, 0, 0, 0])
+        for j in range(1, N+1):
+            yref = np.concatenate(( [s0 + sref_N * j / N], np.zeros(7 if j != N else 5) ))
             acados_ocp_solver.cost_set(j, "yref", yref)
-        acados_ocp_solver.cost_set(N, "yref", np.array([s0 + sref_N, 0, 0, 0, 0, 0]))
 
         # solve the ocp
         t = time.time()
@@ -359,14 +358,14 @@ def compare_formulation(car_params: CarParams, solver: str):
     N = car_params.N.item()
     l = car_params.l.item()
     s0 = 0.0
-    sref_N = 46.5
+    sref_N = car_params.s_ref_N.item()
     for j in range(1, N):
         yref = np.array([s0 + sref_N * j / N, 0, 0, 0, 0, 0, 0, 0])
-        ocp_solver_dimensional.set(j, "yref", yref * l)
-        ocp_solver_dimensionless.set(j, "yref", yref)
+        ocp_solver_dimensional.set(j, "yref", yref)
+        ocp_solver_dimensionless.set(j, "yref", yref / l)
     yref_N = np.array([s0 + sref_N, 0, 0, 0, 0, 0])
-    ocp_solver_dimensional.set(N, "yref", yref_N * l)
-    ocp_solver_dimensionless.set(N, "yref", yref_N)
+    ocp_solver_dimensional.set(N, "yref", yref_N)
+    ocp_solver_dimensionless.set(N, "yref", yref_N / l)
     
     x0 = np.array([s0, 0.0, 0.0, 0.0, 0.0, 0.0])
     if solver == "ipopt":
@@ -383,10 +382,10 @@ def compare_formulation(car_params: CarParams, solver: str):
     compare_iterates(it1=sol_dimensional, it2=sol_dimensionless, name1="dimensional", name2="dimensionless")
 
     Mx, Mu, _ = get_transformation_matrices(car_params)    
-    x_dimensional = np.array(sol_dimensional.x_traj)
-    u_dimensional = np.array(sol_dimensional.u_traj)
-    x_dimensionless = np.array(sol_dimensionless.x_traj) @ Mx
-    u_dimensionless = np.array(sol_dimensionless.u_traj) @ Mu
+    x_dimensional = np.array(sol_dimensional.x)
+    u_dimensional = np.array(sol_dimensional.u)
+    x_dimensionless = np.array(sol_dimensionless.x) @ Mx
+    u_dimensionless = np.array(sol_dimensionless.u) @ Mu
 
     print("x diff: ", np.max(np.abs(x_dimensional - x_dimensionless)))
     print("u diff: ", np.max(np.abs(u_dimensional - u_dimensionless)))
@@ -397,8 +396,8 @@ def compare_formulation(car_params: CarParams, solver: str):
     print("n_iter dimensionless: ", n_iter_dimensionless)
 
     fig, axes = plt.subplots(8, 1, sharex=True, constrained_layout=True)
-    x_labels = ocp_solver_dimensional.ocp.model.x_labels if solver == "ipopt" else ocp_solver_dimensional.ocp.model.x_labels
-    u_labels = ocp_solver_dimensional.ocp.model.u_labels if solver == "ipopt" else ocp_solver_dimensional.ocp.model.u_labels
+    x_labels = ocp_solver_dimensional.ocp.model.x_labels
+    u_labels = ocp_solver_dimensional.ocp.model.u_labels
     labels = ["dimensional", "dimensionless"]
     states_list = [x_dimensional, x_dimensionless]
     controls_list = [u_dimensional, u_dimensionless]

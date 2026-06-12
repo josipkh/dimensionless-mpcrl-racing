@@ -18,14 +18,7 @@ class RaceCarController(AcadosPlanner):
     def __init__(self, car_params: CarParams, dimensionless: bool):
         self.dimensionless = dimensionless
 
-        # if not dimensionless:
-        #     Mx, Mu, _ = get_transformation_matrices(car_params)
-        #     Mx_tensor = torch.tensor(Mx, dtype=torch.float32)
-        #     self.nondim2dim_x = lambda x: (x @ Mx_tensor.to(x.device))
-        #     Mu_inv_tensor = torch.tensor(np.linalg.inv(Mu), dtype=torch.float32)
-        #     self.dim2nondim_u = lambda u: (u @ Mu_inv_tensor.to(u.device))
-
-        self.sref_N = 46.5 * (car_params.l.item() if not dimensionless else 1.0)  # terminal progress reference
+        self.sref_N = car_params.s_ref_N.item() / (car_params.l.item() if dimensionless else 1.0)  # terminal progress reference
         self.N = car_params.N.item()
         self.s_offset = np.linspace(start=0.0, stop=self.sref_N, num=self.N+1)  # will be added to current s
 
@@ -41,7 +34,7 @@ class RaceCarController(AcadosPlanner):
         diff_mpc = AcadosDiffMpcTorch(
             ocp=self.ocp,
             # export_directory=self.ocp.code_gen_opts.code_export_directory,  # don't specify this to avoid issues with code reuse
-            verbose=False
+            verbose=False,
         )
 
         super().__init__(param_manager=param_manager, diff_mpc=diff_mpc)
@@ -50,16 +43,12 @@ class RaceCarController(AcadosPlanner):
     def forward(
         self, obs: torch.Tensor, param: torch.Tensor, ctx: AcadosDiffMpcCtx | None = None
     ) -> tuple[AcadosDiffMpcCtx, torch.Tensor]:
-        batch_size = obs.shape[0]
-
-        # if not self.dimensionless:
-        #     obs = self.nondim2dim_x(obs)  # observations are always dimensionless
 
         s_current = obs[:, 0].cpu().numpy()          # (B,)
         sref = s_current[:, None] + self.s_offset    # (B, N+1)
 
         p_stagewise = self.param_manager.combine_non_learnable_parameter_values(
-            sref=sref.reshape(batch_size, -1, 1),
+            sref=sref.reshape(obs.shape[0], -1, 1),
         )
 
         ctx_out, u0, x, u, v = self.diff_mpc(
@@ -89,6 +78,10 @@ class RaceCarController(AcadosPlanner):
         #     u0 = self.dim2nondim_u(u0)  # actions should be dimensionless
 
         return ctx_out, u0
+
+
+    def jacobian_action_param(self, ctx: AcadosDiffMpcCtx) -> np.ndarray:
+        return self.sensitivity(ctx, "du0_dp")
 
 
 def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_manager: AcadosParameterManager) -> AcadosOcp:
