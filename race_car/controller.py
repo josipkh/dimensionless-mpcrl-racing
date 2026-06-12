@@ -2,6 +2,7 @@
 import casadi as ca
 import numpy as np
 import torch
+
 from acados_template import AcadosOcp
 from leap_c.examples.utils.casadi import integrate_erk4
 from leap_c.ocp.acados.planner import AcadosPlanner
@@ -10,7 +11,6 @@ from leap_c.ocp.acados.torch import AcadosDiffMpcCtx, AcadosDiffMpcTorch
 
 from race_car.acados_ocp import export_ocp
 from race_car.utils.config import CarParams, create_acados_params, get_default_car_params_tracking
-from race_car.utils.scaling import get_transformation_matrices
 
 
 class RaceCarController(AcadosPlanner):
@@ -107,6 +107,7 @@ def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_mana
         u=ocp.model.u,
         p=p,
         dt=ocp.solver_options.tf / ocp.solver_options.N_horizon,
+        n_steps=ocp.solver_options.sim_method_num_steps
     )
     ocp.solver_options.integrator_type = "DISCRETE"
 
