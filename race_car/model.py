@@ -19,13 +19,14 @@ from race_car.utils.log_utils import create_acados_temp_dir
 
 include_terminal_acc_constraint = True  # not used in the original example
 
-def car_model_ocp(car_params: CarParams, dimensionless: bool) -> AcadosModel:
+
+def car_model_ocp(car_params: CarParams | SymbolicCarParams, dimensionless: bool) -> AcadosModel:
     """Get the prediction model for use in the OCP (control rate formulation)."""
 
     if dimensionless:
         # symbolic parameters needed for model reformulation
-        numeric_car_params = car_params
-        car_params = SymbolicCarParams()  
+        numeric_car_params = car_params if isinstance(car_params, CarParams) else None  # save values for later substitution
+        car_params = SymbolicCarParams()
 
     # load track parameters
     [sref, _, _, _, kapparef] = get_track(car_params=car_params)
@@ -161,6 +162,7 @@ def car_model_sim(car_params: CarParams, dimensionless: bool) -> AcadosModel:
     model.x = model_ocp.x[0:nx]
     model.xdot = model_ocp.xdot[0:nx]
     model.u = model_ocp.x[nx:nx+nu]
+    model.p_global = model_ocp.p_global  # keep the global parameters
     model.name = model_ocp.name.replace("ocp", "sim")
     model.x_labels = model_ocp.x_labels[0:nx]
     model.u_labels = model_ocp.x_labels[nx:nx+nu]
