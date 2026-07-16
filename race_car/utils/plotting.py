@@ -1,5 +1,4 @@
 """Utility functions for plotting."""
-import sys
 import matplotlib
 import os
 if not "DISPLAY" in os.environ:

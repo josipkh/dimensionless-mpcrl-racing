@@ -14,7 +14,7 @@ from race_car.utils.config import CarParams
 from race_car.utils.plotting import plot_results_track, plot_results_classic, plot_lat_acc
 from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
 from race_car.utils.track import get_track
-from race_car.utils.log_utils import create_acados_temp_dir
+from race_car.utils.log_utils import use_acados_temp_dir
 
 # settings for terminal constraints and slacks
 from race_car.model import include_terminal_acc_constraint
@@ -201,13 +201,12 @@ def export_acados_ocp_solver(car_params: CarParams, dimensionless: bool) -> Acad
     acados_ocp = export_ocp(car_params=car_params, dimensionless=dimensionless)
 
     # use a temporary directory to avoid overwriting files when running multiple experiments
-    json_file = create_acados_temp_dir(acados_ocp)
+    use_acados_temp_dir(acados_ocp)
 
     print("Setting up acados OCP solver...")
     acados_ocp_solver = AcadosOcpSolver(
         ocp=acados_ocp,
         verbose=False,
-        json_file=json_file,
     )
     return acados_ocp_solver
 

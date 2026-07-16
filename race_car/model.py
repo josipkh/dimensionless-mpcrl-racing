@@ -15,7 +15,7 @@ from race_car.utils.config import CarParams, SymbolicCarParams, get_default_car_
 from race_car.utils.scaling import get_transformation_matrices, get_pi_groups
 from race_car.utils.track import get_track
 from race_car.utils.symbolics import casadi2sympy, sympy2casadi
-from race_car.utils.log_utils import create_acados_temp_dir
+from race_car.utils.log_utils import use_acados_temp_dir
 
 include_terminal_acc_constraint = True  # not used in the original example
 
@@ -185,13 +185,12 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
     acados_sim.solver_options.sens_forw = False  # we don't need this information for simulations
 
     # assign a random directory to prevent overwriting
-    json_file = create_acados_temp_dir(acados_sim)
+    use_acados_temp_dir(acados_sim)
 
     print("Setting up acados integrator...")
     acados_sim_solver = AcadosSimSolver(
         acados_sim=acados_sim, 
         verbose=False,
-        json_file=json_file,
     )
 
     return acados_sim_solver
