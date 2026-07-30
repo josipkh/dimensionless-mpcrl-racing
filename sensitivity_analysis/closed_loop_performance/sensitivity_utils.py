@@ -1,4 +1,5 @@
 """Helper functions for creating differentiable MPC solvers and one-step integrators."""
+from copy import deepcopy
 import numpy as np
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosCasadiOcpSolver, AcadosModel
@@ -15,18 +16,19 @@ def create_solvers(ocp: AcadosOcp):
     # ocp_solver = AcadosCasadiOcpSolver(ocp, verbose=False)
 
     # create the sensitivity solver (du0_dp is not needed, only du0_dx0)
-    make_ocp_sensitivity_compatible(ocp)
-    ocp.code_gen_options.with_solution_sens_wrt_params = False
-    ocp.code_gen_options.with_value_sens_wrt_params = False
+    sensitivity_ocp = deepcopy(ocp)
+    make_ocp_sensitivity_compatible(sensitivity_ocp)
+    sensitivity_ocp.code_gen_options.with_solution_sens_wrt_params = False
+    sensitivity_ocp.code_gen_options.with_value_sens_wrt_params = False
 
-    use_acados_temp_dir(ocp)
+    use_acados_temp_dir(sensitivity_ocp)
 
-    ocp.model.name = 'sensitivity_solver'
-    sensitivity_solver = AcadosOcpSolver(ocp, verbose=False)
+    sensitivity_ocp.model.name = 'sensitivity_solver'
+    sensitivity_solver = AcadosOcpSolver(sensitivity_ocp, verbose=False)
 
     if ocp.dims.np_global > 0:
         ocp_solver.set_p_global_and_precompute_dependencies(ocp.p_global_values)
-        sensitivity_solver.set_p_global_and_precompute_dependencies(ocp.p_global_values)
+        sensitivity_solver.set_p_global_and_precompute_dependencies(sensitivity_ocp.p_global_values)
 
     return ocp_solver, sensitivity_solver
 

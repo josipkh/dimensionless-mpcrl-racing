@@ -190,8 +190,8 @@ if __name__ == "__main__":
 
     Mx, Mu, _ = get_transformation_matrices(car_params)
 
-    plot_results_track(state_log=x_log@Mx, car_params=car_params, total_time=0.0)
-    plot_results_classic(simX=x_log@Mx, simU=u_log@Mu, t=np.linspace(0.0, N_sim*car_params.dt.item(), N_sim), car_params=car_params)
+    plot_results_track(state_log=x_log @ Mx, car_params=car_params, total_time=0.0)
+    plot_results_classic(simX=x_log @ Mx, simU=u_log@Mu, t=np.linspace(0.0, N_sim * car_params.dt.item(), N_sim), car_params=car_params)
 
     print("calculating the closed-loop sensitivity...")
     dJ_dp = calculate_closed_loop_cost_sensitivity(

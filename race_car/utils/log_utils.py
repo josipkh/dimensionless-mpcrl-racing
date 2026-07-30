@@ -50,9 +50,9 @@ def tee_logging(output_path: Path):
             sys.stderr = tee_err._stream
 
 
-def use_acados_temp_dir(ocp_or_sim: AcadosOcp | AcadosSim) -> None:
+def use_acados_temp_dir(ocp_or_sim: AcadosOcp | AcadosSim, prefix="acados_") -> None:
     """Creates a temporary directory for acados files, which is automatically cleaned up."""
-    temp_dir = tempfile.mkdtemp(prefix="acados_")
+    temp_dir = tempfile.mkdtemp(prefix=prefix)
     atexit.register(shutil.rmtree, temp_dir, ignore_errors=True)
 
     ocp_or_sim.code_gen_opts.code_export_directory = os.path.join(temp_dir, "codegen")
