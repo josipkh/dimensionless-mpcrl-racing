@@ -1,15 +1,11 @@
 """Defines the dynamics models for use in the OCP and the simulation."""
 
-import os
-from pathlib import Path
-from tempfile import mkdtemp
 from dataclasses import fields
 
 import casadi as ca
 import numpy as np
 import sympy as sp
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
-from leap_c.ocp.acados.utils.delete_directory_hook import DeleteDirectoryHook
 
 from race_car.utils.config import CarParams, SymbolicCarParams, get_default_car_params
 from race_car.utils.scaling import get_transformation_matrices, get_pi_groups
@@ -177,12 +173,18 @@ def export_acados_integrator(car_params: CarParams, dimensionless: bool) -> Acad
     acados_sim = AcadosSim()
     acados_sim.model = car_model_sim(car_params=car_params, dimensionless=dimensionless)
     acados_sim.solver_options.T = car_params.dt.item()
-    if dimensionless:
-        acados_sim.solver_options.T /= get_transformation_matrices(car_params)[2].item()  # scale the sampling time
     acados_sim.solver_options.integrator_type = "ERK"
     acados_sim.solver_options.num_stages = 4
     acados_sim.solver_options.num_steps = 3  # match the OCP integrator accuracy
     acados_sim.solver_options.sens_forw = False  # we don't need this information for simulations
+
+    if dimensionless:
+        acados_sim.solver_options.T /= get_transformation_matrices(car_params)[2].item()  # scale the sampling time
+
+        # replace the pi groups with numerical values and remove p_global (not supported for AcadosSim)
+        pi_groups_numeric = get_pi_groups(car_params)
+        acados_sim.model.substitute(acados_sim.model.p_global, pi_groups_numeric)
+        acados_sim.model.p_global = []
 
     # assign a random directory to prevent overwriting
     use_acados_temp_dir(acados_sim)
@@ -324,11 +326,14 @@ def replace_pi_groups(model: AcadosModel, car_params: CarParams | None = None) -
                 substitutions=substitutions
             )
 
-    # substitute car parameters if numerical values are given
-    if car_params is not None:
-        pi_groups_numeric = get_pi_groups(car_params)
-        model.substitute(pi_groups_casadi, pi_groups_numeric)
-        model.p_global = []  # symbolic parameters are not needed anymore
+    # NOTE: keep p_global  in the model for calculating closed-loop sensitivites
+    # (outside of leap-c, dx_dp is needed)
+    
+    # # substitute car parameters if numerical values are given
+    # if car_params is not None:
+    #     pi_groups_numeric = get_pi_groups(car_params)
+    #     model.substitute(pi_groups_casadi, pi_groups_numeric)
+    #     model.p_global = []  # symbolic parameters are not needed anymore
 
     return model
 
@@ -343,106 +348,25 @@ def substitute_expression_through_sympy(casadi_expr: ca.SX, casadi_vars: ca.SX, 
     return expr_casadi_modified
 
 
-# def test_integrator_casadi(car_params: CarParams, model: AcadosModel):
-#     """Simulate the symbolic dynamics using CasADi."""
-#     ode = {'x': model.x, 'ode': model.f_expl_expr, 'p': model.u}
-#     integrator = ca.integrator('integrator', 'rk', ode, 0, car_params.dt.item())
-#     x = [0.0, 0.0, 0.0, 0.0]
-#     for _ in range(10):
-#         res = integrator(x0=x, p=[1.0, 0.0])  # straight driving, full throttle
-#         x = res['xf'].full().flatten()
-#     print("="*20)
-#     print("car length: ", car_params.l.item())
-#     print("x final: ", x)
-#     print("x scaled: ", x / car_params.l.item())
-#     print("="*20)
-#     return
-
-
-# def test_dimensionless_integrator_casadi():
-#     from tqdm import tqdm
-#     """Formulate a symbolic dimensionless model and compare the results using random values."""
-#     model_intermediate = car_model_ocp(car_params=SymbolicCarParams(), dimensionless=True)
-#     model = replace_pi_groups(model_intermediate)
-
-#     dt = get_default_car_params().dt[0] / get_transformation_matrices(get_default_car_params())[2][0]
-#     ode_dict = {'x': model.x, 'p': ca.vcat([model.u, model.p_global]), 'ode': model.f_expl_expr}
-#     integrator = ca.integrator('F', 'cvodes', ode_dict, 0.0, dt)
-
-#     pi_groups_default = get_pi_groups(get_default_car_params())
-#     pi_groups_large = get_pi_groups(get_large_car_params())
-
-#     nx = model.x.size1()
-#     nu = model.u.size1()
-
-#     for _ in tqdm(range(int(1e4)), desc="Testing dimensionless integrator with random values"):
-#         x = np.random.rand(nx)
-#         u = np.random.rand(nu)
-#         results_default = integrator(x0=x, p=np.concatenate([u, pi_groups_default]))["xf"]
-#         results_large = integrator(x0=x, p=np.concatenate([u, pi_groups_large]))["xf"]
-#         assert np.allclose(results_default, results_large)
-    
-#     print("dimensionless model checks out")
-
-
-# def car_model_sim_dimensionless(car_params: CarParams) -> AcadosModel:
-#     """Creates a purely dimensionless simulation model."""
-#     ocp_model_intermediate = car_model_ocp(car_params=SymbolicCarParams(), dimensionless=True)
-#     model_ocp = replace_pi_groups(ocp_model_intermediate, car_params)
-
-#     # remove the control input rate from the model for simulation
-#     nx = 4
-#     nu = 2
-#     model = AcadosModel()
-#     model.f_impl_expr = model_ocp.f_impl_expr[0:nx]
-#     model.f_expl_expr = model_ocp.f_expl_expr[0:nx]
-#     model.x = model_ocp.x[0:nx]
-#     model.xdot = model_ocp.xdot[0:nx]
-#     model.u = model_ocp.x[nx:nx+nu]
-#     model.name = model_ocp.name.replace("ocp", "sim")
-#     model.x_labels = model_ocp.x_labels[0:nx]
-#     model.u_labels = model_ocp.x_labels[nx:nx+nu]
-#     model.t_label = model_ocp.t_label
-
-#     return model
-
-
-# def export_acados_integrator_dimensionless(car_params: CarParams) -> AcadosSimSolver:
-#     """Creates an integrator with a purely dimensionless model."""
-#     acados_sim = AcadosSim()
-#     acados_sim.model = car_model_sim_dimensionless(car_params)
-#     acados_sim.solver_options.T = (get_default_car_params().dt[0] / get_transformation_matrices(get_default_car_params())[2][0]).item()
-#     acados_sim.solver_options.integrator_type = "ERK"
-#     acados_sim.solver_options.num_stages = 4
-#     acados_sim.solver_options.num_steps = 3
-
-#     # assign a random directory to prevent overwriting
-#     export_directory = str(Path(mkdtemp(prefix="jkh_acados_")))
-#     acados_sim.code_gen_opts.code_export_directory = os.path.join(export_directory, "codegen")
-#     json_file = os.path.join(export_directory, "sim_model.json")
-#     # export_directory = os.path.join("codegen", f"sim_{car_params.l.item():.3g}".replace(".", "_"))
-#     # json_file = os.path.join("json", f"sim_{car_params.l.item():.3g}".replace(".", "_") + ".json")    
-#     print("Setting up acados integrator...")
-
-#     acados_sim_solver = AcadosSimSolver(
-#         acados_sim=acados_sim, 
-#         verbose=False,
-#         json_file=json_file,
-#     )
-    
-#     # schedule folder deletion after the program finishes
-#     DeleteDirectoryHook(acados_sim_solver, export_directory)
-
-#     return acados_sim_solver
-
-
-# from race_car.utils.scaling import compare_casadi_expressions
-# model_1 = car_model_sim(car_params=get_default_car_params(), dimensionless=True)
-# model_2 = car_model_sim_dimensionless(car_params=get_default_car_params())
-# for k in range(model_1.f_expl_expr.size1()):
-#     expr_match = compare_casadi_expressions(expr1=model_1.f_expl_expr[k], syms1=ca.vertcat(model_1.x, model_1.u),
-#                                             expr2=model_2.f_expl_expr[k], syms2=ca.vertcat(model_2.x, model_2.u))
-#     print(f"dynamics for state {k} ", "match" if expr_match else "do not match")
+def integrate_erk4(
+    f_expl: ca.SX,
+    x: ca.SX,
+    u: ca.SX,
+    p: ca.SX,
+    dt: float,
+    n_steps: int = 1,
+) -> ca.SX:
+    """Integrate dynamics using the explicit RK4 method."""
+    ode = ca.Function("ode", [x, u, p], [f_expl])
+    h = dt / n_steps
+    x_next = x
+    for _ in range(n_steps):
+        k1 = ode(x_next, u, p)
+        k2 = ode(x_next + h / 2 * k1, u, p)
+        k3 = ode(x_next + h / 2 * k2, u, p)
+        k4 = ode(x_next + h * k3, u, p)
+        x_next = x_next + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+    return x_next
 
 
 if __name__ == "__main__":
@@ -479,17 +403,6 @@ if __name__ == "__main__":
             labels = ["small", "large"]
             # formulations are same, no transformation needed
             Mx_ref = Mx_inv_ref = Mx_sim = Mx_inv_sim = np.eye(4)
-        # case 3:
-        #     integrator_ref = export_acados_integrator(car_params=get_default_car_params(), dimensionless=True)
-        #     integrator_sim = export_acados_integrator_dimensionless(car_params=get_default_car_params())
-        #     labels = ["without subs", "with subs"]
-        #     # formulations are same, no transformation needed
-        #     Mx_ref = Mx_inv_ref = Mx_sim = Mx_inv_sim = np.eye(4)
-        # case 4:
-        #     integrator_ref = export_acados_integrator_dimensionless(car_params=get_default_car_params())
-        #     integrator_sim = export_acados_integrator_dimensionless(car_params=get_large_car_params())
-        #     labels = ["small", "large"]
-        #     Mx_ref = Mx_inv_ref = Mx_sim = Mx_inv_sim = np.eye(4)
         case _:
             raise ValueError("test case not defined")
     print("Integrators successfully created.")

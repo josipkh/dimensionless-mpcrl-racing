@@ -2,17 +2,17 @@
 import os
 import time
 
-import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.linalg
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosOcpIterate, AcadosCasadiOcpSolver
 import matplotlib.pyplot as plt
+import casadi as ca
 
 from race_car.model import car_model_ocp, export_acados_integrator
 from race_car.utils.config import CarParams
 from race_car.utils.plotting import plot_results_track, plot_results_classic, plot_lat_acc
-from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
+from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices, get_pi_groups
 from race_car.utils.track import get_track
 from race_car.utils.log_utils import use_acados_temp_dir
 
@@ -33,6 +33,9 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
 
     # prediction model
     ocp.model = car_model_ocp(car_params=car_params, dimensionless=dimensionless)
+    if dimensionless:
+        # substitute car parameters with the numerical values, keep p_global in the formulation
+        ocp.p_global_values = get_pi_groups(car_params)
 
     # constraints on states
     z = z_e = np.array([])  # linear cost weights for slacks
@@ -78,25 +81,41 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
             z_e = np.append(z_e, car_params.slack_acc_linear.item() * np.ones(nsh,))
             Z_e = np.append(Z_e, car_params.slack_acc_quadratic.item() * np.ones(nsh,))
 
-    # cost weights (NONLINEAR_LS), defined for the discrete-time cost
-    # TODO: try using AUTO or LINEAR_LS
+    # cost weights (linear least-squares), defined for the discrete-time cost
+    # state references will be set online
     Q, R, Qe = get_cost_matrices(car_params=car_params)
     ocp.solver_options.cost_scaling = np.ones(ocp.solver_options.N_horizon + 1)
+    nx, nu = ocp.model.x.rows(), ocp.model.u.rows()
 
-    ocp.cost.cost_type_0 = 'NONLINEAR_LS'
-    ocp.model.cost_y_expr_0 = ocp.model.u
-    ocp.cost.yref_0 = np.zeros(ocp.model.cost_y_expr_0.shape)  # will not be changed later
+    cost_type = "NONLINEAR_LS"
+
+    ocp.cost.cost_type_0 = cost_type
     ocp.cost.W_0 = R
-    
-    ocp.cost.cost_type = 'NONLINEAR_LS'
-    ocp.model.cost_y_expr = ca.vertcat(ocp.model.x, ocp.model.u)
-    ocp.cost.yref = np.zeros(ocp.model.cost_y_expr.shape)  # will be changed at runtime
-    ocp.cost.W = scipy.linalg.block_diag(Q, R)
+    ocp.cost.yref_0 = np.zeros(nu)
 
-    ocp.cost.cost_type_e = 'NONLINEAR_LS'
-    ocp.model.cost_y_expr_e = ocp.model.x
-    ocp.cost.yref_e = np.zeros(ocp.model.cost_y_expr_e.shape)  # will be changed at runtime
+    ocp.cost.cost_type = cost_type
+    ocp.cost.W = scipy.linalg.block_diag(Q, R)
+    ocp.cost.yref = np.zeros(nx+nu)
+
+    ocp.cost.cost_type_e = cost_type
     ocp.cost.W_e = Qe
+    ocp.cost.yref_e = np.zeros(nx)
+
+    if cost_type == "LINEAR_LS":
+        ocp.cost.Vx_0 = np.zeros((nu, nx))
+        ocp.cost.Vu_0 = np.eye(nu)
+
+        ocp.cost.Vx = np.zeros((nx + nu, nx))
+        ocp.cost.Vx[:nx,:nx] = np.eye(nx)
+        ocp.cost.Vu = np.zeros((nx + nu, nu))
+        ocp.cost.Vu[nx:,:] = np.eye(nu)
+
+        ocp.cost.Vx_e = np.eye(nx)
+        ocp.cost.Vu_e = np.zeros((nx, nu))
+    elif cost_type == "NONLINEAR_LS":
+        ocp.model.cost_y_expr_0 = ocp.model.u
+        ocp.model.cost_y_expr = ca.vertcat(ocp.model.x, ocp.model.u)
+        ocp.model.cost_y_expr_e = ocp.model.x
 
     # penalty on the slack variables (L2 for smoothness)
     # ordering: first state bounds, then general nonlinear constraints
@@ -127,7 +146,7 @@ def export_ocp(car_params: CarParams, dimensionless: bool) -> AcadosOcp:
     # ocp.solver_options.nlp_solver_ext_qp_res = 1  # print out QP residuals too
 
     # specific codegen folder to prevent overwriting
-    ocp.code_gen_opts.code_export_directory = os.path.join("codegen", f"ocp_{car_params.l.item():.3g}".replace(".", "_"))
+    ocp.code_gen_options.code_export_directory = os.path.join("codegen", f"ocp_{car_params.l.item():.3g}".replace(".", "_"))
 
     if dimensionless:
         ocp = nondimensionalize_ocp(ocp, car_params)
@@ -191,7 +210,7 @@ def nondimensionalize_ocp(ocp: AcadosOcp, car_params: CarParams) -> AcadosOcp:
 
     # the initial state can remain unchanged, will be replaced anyway
 
-    ocp.code_gen_opts.code_export_directory += "_dimensionless"
+    ocp.code_gen_options.code_export_directory += "_dimensionless"
 
     return ocp
 

@@ -4,12 +4,12 @@ import numpy as np
 import torch
 
 from acados_template import AcadosOcp
-from leap_c.examples.utils.casadi import integrate_erk4
 from leap_c.ocp.acados.planner import AcadosPlanner
 from leap_c.ocp.acados.parameters import AcadosParameterManager
 from leap_c.ocp.acados.torch import AcadosDiffMpcCtx, AcadosDiffMpcTorch
 
 from race_car.acados_ocp import export_ocp
+from race_car.model import integrate_erk4
 from race_car.utils.config import CarParams, create_acados_params, get_default_car_params_tracking
 
 
@@ -33,7 +33,6 @@ class RaceCarController(AcadosPlanner):
         print("Setting up acados MPC...")
         diff_mpc = AcadosDiffMpcTorch(
             ocp=self.ocp,
-            # export_directory=self.ocp.code_gen_opts.code_export_directory,  # don't specify this to avoid issues with code reuse
             verbose=False,
         )
 
@@ -87,6 +86,11 @@ class RaceCarController(AcadosPlanner):
 def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_manager: AcadosParameterManager) -> AcadosOcp:
     """Modifies the OCP for use within leap-c."""
     ocp = export_ocp(car_params=car_params, dimensionless=dimensionless)
+
+    if dimensionless:
+        # remove Pi groups from global parameters (not learned anyway)
+        ocp.model.substitute(ocp.model.p_global, ocp.p_global_values)
+        ocp.model.p_global = []
     
     p = ca.vertcat(
         param_manager.non_learnable_parameters.cat,
@@ -111,15 +115,7 @@ def export_parametric_ocp(car_params: CarParams, dimensionless: bool, param_mana
     qex_diag_log = param_manager.get("qex_diag_log")
     qeu_diag_log = param_manager.get("qeu_diag_log")
 
-    # if not dimensionless:
-    #     # scale the state cost weights to the specified car
-    #     nx = 4
-    #     Mx = get_transformation_matrices(car_params)[0][:nx, :nx]
-    #     log_scale_correction = -2 * np.log10(np.diag(Mx))
-    #     qx_diag_log += log_scale_correction
-    #     qex_diag_log += log_scale_correction
-
-    # set the NONLINEAR_LS cost
+    # set the cost weights
     ocp.cost.W_0 = ca.diag(10 ** (r_diag_log))
     ocp.cost.W = ca.diag(10 ** ca.vertcat(qx_diag_log, qu_diag_log, r_diag_log))
     ocp.cost.W_e = ca.diag(10 ** ca.vertcat(qex_diag_log, qeu_diag_log))
