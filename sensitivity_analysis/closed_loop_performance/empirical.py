@@ -2,16 +2,17 @@
 
 import numpy as np
 import casadi as ca
-from acados_template import AcadosOcp, AcadosOcpSolver
+from acados_template import AcadosOcpSolver
 from acados_template.utils import is_empty
 from race_car.utils.log_utils import use_acados_temp_dir
 from race_car.acados_ocp import export_ocp
 from race_car.utils.config import CarParams
 
 
-def evaluate_closed_loop(car_params: CarParams, pi_variation: np.ndarray) -> float:
-    """Runs a closed-loop experiment and returns the total cost."""
+def evaluate_closed_loop(car_params: CarParams, pi_variation: np.ndarray) -> tuple[np.ndarray, float]:
+    """Runs a closed-loop experiment, returns the state log and the total cost."""
 
+    # recreate the OCP from scratch, to avoid conflicts with the previous run
     N = car_params.N.item()
     ocp = export_ocp(car_params=car_params, dimensionless=True)
     s_offset = np.linspace(
@@ -73,9 +74,9 @@ def evaluate_closed_loop(car_params: CarParams, pi_variation: np.ndarray) -> flo
 def evaluate_grid(
     car_params: CarParams,
     param_indices: list[int],
-    param_ranges: tuple[np.ndarray, np.ndarray],
+    param_values: tuple[np.ndarray, np.ndarray],
 ) -> tuple[np.ndarray, np.ndarray]:
-    p1_grid, p2_grid = np.meshgrid(param_ranges[0], param_ranges[1])
+    p1_grid, p2_grid = np.meshgrid(param_values[0], param_values[1])
     cost_grid = np.zeros_like(p1_grid, dtype=float)
 
     k = 0
@@ -85,11 +86,10 @@ def evaluate_grid(
             pi_variation[param_indices[0]] = p1_grid[i, j]
             pi_variation[param_indices[1]] = p2_grid[i, j]
 
-            # ocp.model.name = "model_" + str(k)
             _, cost = evaluate_closed_loop(car_params, pi_variation)
             cost_grid[i, j] = cost
 
-            print(f"evaluation {k} done")
+            print(f"Evaluation {k+1}/{p1_grid.size} done.")
             k += 1
 
     return p1_grid, p2_grid, cost_grid
@@ -168,12 +168,12 @@ if __name__ == "__main__":
 
     p1_vals = np.linspace(-0.5, 0.5, 3)
     p2_vals = np.linspace(-0.5, 0.5, 3)
-    param_indices = [1, 4]
+    param_indices = [1, 2]  # zero-based
 
     p1_grid, p2_grid, costs = evaluate_grid(
         car_params=car_params,
         param_indices=param_indices,
-        param_ranges=(p1_vals, p2_vals),
+        param_values=(p1_vals, p2_vals),
     )
 
     plot_grid_results(p1_grid, p2_grid, costs, param_indices)

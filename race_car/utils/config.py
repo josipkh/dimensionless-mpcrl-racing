@@ -200,6 +200,14 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         qx_diag_min_log = np.log10(qx_diag_min)
         qx_diag_max_log = np.log10(qx_diag_max)
 
+    # TODO: remove?
+    # overwrite the previous values with wider bounds (for transfer testing)
+    # bounds chosen from known starting/final values of costs (slight cheating)
+    cost_min_log = -7.4 if dimensionless else -8.6
+    cost_max_log = 4.0  # same for both formulations
+    qx_diag_min_log = cost_min_log * np.ones_like(qx_diag_min_log)
+    qx_diag_max_log = cost_max_log * np.ones_like(qx_diag_max_log)
+
     params = [
         AcadosParameter(
             name="qx_diag_log",
@@ -308,5 +316,17 @@ if __name__ == "__main__":
     create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=False)
 
     SymbolicCarParams()
+
+    # check the parameter ranges for the two formulations
+    for dimensionless in [True, False]:
+        params_1 = create_acados_params(car_params=get_default_car_params(), dimensionless=dimensionless)
+        params_2 = create_acados_params(car_params=get_large_car_params(), dimensionless=dimensionless)
+        params_3 = create_acados_params(car_params=get_default_car_params_tracking(), dimensionless=dimensionless)
+        params_4 = create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=dimensionless)
+
+        all_params = [params_1, params_2, params_3, params_4]
+        params_max = np.max([params[0].space.high for params in all_params])
+        params_min = np.min([params[0].space.low for params in all_params])
+        print(f"{'Dimensional' if not dimensionless else 'Dimensionless'} parameters range: [{params_min}, {params_max}]")
 
     print("ok")

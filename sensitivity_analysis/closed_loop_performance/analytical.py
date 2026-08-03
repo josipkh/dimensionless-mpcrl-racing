@@ -164,9 +164,8 @@ def compare_solutions_and_sensitivities():
 if __name__ == "__main__":
     from race_car.utils.plotting import plot_results_classic, plot_results_track
     from race_car.utils.scaling import get_transformation_matrices
-    from race_car.utils.config import get_default_car_params_tracking
 
-    car_params = get_default_car_params_tracking()
+    car_params = get_default_car_params()
     N = car_params.N.item()
 
     ocp = export_ocp(car_params=car_params, dimensionless=True)
