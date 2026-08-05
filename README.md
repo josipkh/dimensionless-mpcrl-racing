@@ -11,4 +11,7 @@ Additionally, we analyze the importance of each dimensionless group for:
 
 Both analytical methods are compared to empirical, finite difference experiments.
 
-The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the differentiable MPC functionality in [acados](https://docs.acados.org/). To reproduce the results, please use the versions specified in the folder `external`.
+The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the differentiable MPC functionality in [acados](https://docs.acados.org/). To reproduce the results, please use the versions pinned in the folder `external`:
+
+- `leap-c`: [v0.2.0-alpha](https://github.com/leap-c/leap-c/releases/tag/v0.2.0-alpha) (slightly modified)
+- `acados`: [v0.5.5](https://github.com/acados/acados/releases/tag/v0.5.5)
