@@ -245,11 +245,12 @@ def plot_results_track(
                  fontsize=10, horizontalalignment='center', verticalalignment='center')
         plt.plot([xi1[i], xi2[i]], [yi1[i], yi2[i]], color='black')
 
-    if "DISPLAY" in os.environ:
+    if "DISPLAY" in os.environ and output_file is None:
         plt.show(block=False)
     else:
-        plt.savefig(output_file or "plot_track.png")
-        print(f"saved track plot to {output_file or 'plot_track.png'}")
+        output_path = output_file or "output/plot_track.png"
+        plt.savefig(output_path, dpi=300)
+        print(f"saved track plot to {output_path}")
         plt.close()
 
 
@@ -276,11 +277,13 @@ def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_
     plt.grid(True)
     fig.align_ylabels()
 
-    if "DISPLAY" in os.environ:
+    if "DISPLAY" in os.environ and output_file is None:
         plt.show(block=False)
     else:
-        plt.savefig(output_file or "plot_classic.png")
-        print(f"saved classic plot to {output_file or 'plot_classic.png'}")
+        output_path = output_file or "output/plot_classic.png"
+        plt.savefig(output_path)
+        print(f"saved classic plot to {output_path}")
+        plt.close()
 
 
 def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_file: str | None = None) -> None:
@@ -297,11 +300,13 @@ def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_
     plt.ylabel('$a_y$ [m/s$^2$]')
     plt.grid(True)
 
-    if "DISPLAY" in os.environ:
+    if "DISPLAY" in os.environ and output_file is None:
         plt.show(block=False)
     else:
-        plt.savefig(output_file or "plot_lat_acc.png")
-        print(f"saved lateral acceleration plot to {output_file or 'plot_lat_acc.png'}")
+        output_path = output_file or "output/plot_lat_acc.png"
+        plt.savefig(output_path)
+        print(f"saved lateral acceleration plot to {output_path}")
+        plt.close()
 
 
 def calculate_acc(x: np.ndarray, car_params: CarParams) -> np.ndarray:

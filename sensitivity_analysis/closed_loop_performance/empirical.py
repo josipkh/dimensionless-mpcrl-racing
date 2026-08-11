@@ -1,5 +1,6 @@
 """Test the effect of plant-model mismatch on closed-loop performance using parameter perturbations."""
 
+import os
 import numpy as np
 import casadi as ca
 from acados_template import AcadosOcpSolver
@@ -99,9 +100,9 @@ def plot_grid_results(
     p1_grid: np.ndarray,
     p2_grid: np.ndarray,
     costs: np.ndarray,
-    param_indices: tuple[int, int] = (1, 2),
+    param_indices: tuple[int, int],
+    output_file: str | None = None,
 ):
-    idx1, idx2 = param_indices
     p1_flat = p1_grid.flatten()
     p2_flat = p2_grid.flatten()
     costs_flat = costs.flatten()
@@ -133,7 +134,7 @@ def plot_grid_results(
 
     plt.plot(0, 0, "rX", markersize=14, label=r"Nominal $\pi$", zorder=4)
 
-    idx1, idx2 = param_indices
+    idx1, idx2 = param_indices[0] + 1, param_indices[1] + 1  # use 1-based indexing for display
     xlabel = fr"Relative Perturbation in $\pi_{{{idx1}}}$ ($\Delta\pi_{{{idx1}}} / \pi_{{{idx1}}}$)"
     ylabel = fr"Relative Perturbation in $\pi_{{{idx2}}}$ ($\Delta\pi_{{{idx2}}} / \pi_{{{idx2}}}$)"
     title = fr"Relative Closed-Loop Cost Change vs. $\pi_{{{idx1}}}$ & $\pi_{{{idx2}}}$"
@@ -148,7 +149,14 @@ def plot_grid_results(
     plt.grid(True, linestyle=":", alpha=0.3, color="white")
     plt.legend(loc="upper right")
     plt.tight_layout()
-    plt.show()
+
+    if "DISPLAY" in os.environ:
+        plt.show(block=False)
+    else:
+        output_path = output_file or "plot_sens_closed_loop.png"
+        plt.savefig(output_path, dpi=300)
+        print(f"saved plot to {output_path}")
+        plt.close()
 
 
 if __name__ == "__main__":
@@ -166,8 +174,8 @@ if __name__ == "__main__":
     # Mx = get_transformation_matrices(car_params)[0]
     # plot_results_track(state_log=x_log@Mx, car_params=car_params, total_time=0.0)
 
-    p1_vals = np.linspace(-0.5, 0.5, 3)
-    p2_vals = np.linspace(-0.5, 0.5, 3)
+    p1_vals = np.linspace(-0.5, 0.5, 7)
+    p2_vals = np.linspace(-0.5, 0.5, 7)
     param_indices = [1, 2]  # zero-based
 
     p1_grid, p2_grid, costs = evaluate_grid(
@@ -176,4 +184,4 @@ if __name__ == "__main__":
         param_values=(p1_vals, p2_vals),
     )
 
-    plot_grid_results(p1_grid, p2_grid, costs, param_indices)
+    plot_grid_results(p1_grid, p2_grid, costs, param_indices, output_file="output/plot_sens_closed_loop.png")
