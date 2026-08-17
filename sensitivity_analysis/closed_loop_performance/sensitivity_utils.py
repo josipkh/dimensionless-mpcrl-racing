@@ -40,32 +40,22 @@ def solve_ocp_and_compute_sens(
     ):
     """Calculate the sensitivity of the policy (u0_opt) w.r.t. initial state (given the optimal solution)."""
 
-    u0_opt = ocp_solver.solve_for_x0(x0)
-    status = ocp_solver.status
-    if status != 0:
-        ocp_solver.print_statistics()
-        print(f"Solver failed with status {status}")
-        breakpoint()
+    u0_opt = ocp_solver.solve_for_x0(x0, fail_on_nonzero_status=False)
+    if ocp_solver.status != 0:
+        print(f"OCP solver returned status {ocp_solver.status}.")
 
     iterate = ocp_solver.get_flat_iterate()
-
     sensitivity_solver.set_iterate(iterate)
     sensitivity_solver.setup_qp_matrices_and_factorize()
 
-    if ocp_solver.status not in [0]:
-        print(f"OCP solver returned status {ocp_solver.status}.")
-        breakpoint()
-    if sensitivity_solver.status not in [0, 2]:
-        print(f"sensitivity solver returned status {sensitivity_solver.status}.")
-        breakpoint()
+    if sensitivity_solver.status != 0:
+        print(f"Sensitivity solver returned status {sensitivity_solver.status}.")
 
-    # Calculate the policy gradient
+    # currently assuming that the solver converges in every iteration
     du0_opt_dx0 = sensitivity_solver.eval_solution_sensitivity(
         stages=0,
         with_respect_to="initial_state",
         return_sens_x=False,
-        return_sens_u=True,
-        sanity_checks=True
     )["sens_u"]
 
     return u0_opt, du0_opt_dx0

@@ -1,4 +1,5 @@
 """Test the importance of specified Pi-groups for dynamic similarity, through perturbation and one-step simulations."""
+import os
 import numpy as np
 import casadi as ca
 from scipy.stats import qmc
@@ -21,9 +22,10 @@ def test_with_finite_differences(
         u_max: np.ndarray,
         u_min: np.ndarray,
         pi_nominal: np.ndarray,
+        perturbation_indices: list,  # NOTE: 1-based
+        output_file: str | None = None,
         N_samples: int = 500,  # global state and input coverage
         seed: int = 0,
-        perturbation_indices: list = [1,2],  # NOTE: 1-based
 ) -> None:
     
     assert len(perturbation_indices) == 2, "evaluation with more than 2 perturbed groups not implemented yet"
@@ -184,7 +186,13 @@ def test_with_finite_differences(
     print(f"Relative importance of pi_{idx2} (finite differences): {pi2_share:.2f} %")
     # print(f"Ratio (pi_{idx1} / pi_{idx2}): {pi2_sens_sq / pi1_sens_sq:.1f}x")
 
-    plt.show()
+    if "DISPLAY" in os.environ and output_file is None:
+        plt.show()
+    else:
+        output_path = output_file or "output/plot_sens_similarity.png"
+        plt.savefig(output_path, dpi=300)
+        print(f"saved plot to {output_path}")
+        plt.close()
 
 
 if __name__ == "__main__":
@@ -192,6 +200,7 @@ if __name__ == "__main__":
     model = car_model_sim(car_params=SymbolicCarParams(), dimensionless=True)    
     default_car_params = get_default_car_params()
     pi_nominal = get_pi_groups(default_car_params)
+    perturbation_indices = [1, 2]  # NOTE: 1-based
 
     Mx, _, mt = get_transformation_matrices(default_car_params)
     dt = default_car_params.dt.item() / mt.item()
@@ -217,4 +226,4 @@ if __name__ == "__main__":
     u_max = np.array([default_car_params.D_max, default_car_params.delta_max])
     u_min = np.array([default_car_params.D_min, default_car_params.delta_min])
 
-    test_with_finite_differences(model, dt, x_max, x_min, u_max, u_min, pi_nominal)
+    test_with_finite_differences(model, dt, x_max, x_min, u_max, u_min, pi_nominal, perturbation_indices)
