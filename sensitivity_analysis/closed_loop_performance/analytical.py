@@ -186,19 +186,23 @@ def compare_solutions_and_sensitivities():
 
 if __name__ == "__main__":
     from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.utils.scaling import get_transformation_matrices
+    from race_car.utils.plotting import plot_results_track, plot_results_classic
 
     car_params = get_default_car_params()
+    plot_track = False
 
     log, closed_loop_cost = simulate_closed_loop(car_params)
-    N_sim = log["u"].shape[0]
 
-    # Mx, Mu, _ = get_transformation_matrices(car_params)
-    # plot_results_track(state_log=log["x"] @ Mx, car_params=car_params, total_time=N_sim * car_params.dt.item())
-    # plot_results_classic(simX=log["x"][:N_sim] @ Mx, simU=log["u"] @ Mu, t=np.linspace(0.0, N_sim * car_params.dt.item(), N_sim), car_params=car_params)
+    if plot_track:
+        N_sim = log["u"].shape[0]
+        Mx, Mu, _ = get_transformation_matrices(car_params)
+        plot_results_track(state_log=log["x"] @ Mx, car_params=car_params, total_time=N_sim * car_params.dt.item())
+        plot_results_classic(simX=log["x"][:N_sim] @ Mx, simU=log["u"] @ Mu, t=np.linspace(0.0, N_sim * car_params.dt.item(), N_sim), car_params=car_params)
 
     print("Calculating the closed-loop sensitivity...")
     dJ_dp = calculate_closed_loop_cost_sensitivity(car_params, log)
 
-    print("dJ_dp:")
+    print("dJ_dp (relative):")
     with np.printoptions(precision=3, suppress=True):
         print(dJ_dp*100)
