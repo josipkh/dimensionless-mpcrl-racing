@@ -94,3 +94,31 @@ def create_one_step_sensitivity_function(model: AcadosModel, dt: float) -> ca.Fu
     )
 
     return one_step_sens_fcn
+
+
+if __name__ == "__main__":
+    from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.acados_ocp import export_ocp
+
+    print("Creating solvers with default parameters...")
+    ocp_small = export_ocp(car_params=get_default_car_params(), dimensionless=True)
+    ocp_solver_small, sensitivity_solver_small = create_solvers(ocp_small)
+
+    print("Creating solvers with similar parameters...")
+    ocp_large = export_ocp(car_params=get_large_car_params(), dimensionless=True)
+    ocp_solver_large, sensitivity_solver_large = create_solvers(ocp_large)
+
+    print("Solving the OCPs and calculating gradients...")
+    x0 = np.array([1.0, 0.0, 0.0, 1.0, 0.5, 0.0])  # TODO: find a state with larger gradients
+    u0_opt_large, du0_opt_dx0_large = solve_ocp_and_compute_sens(ocp_solver_large, sensitivity_solver_large, x0)
+    u0_opt_small, du0_opt_dx0_small = solve_ocp_and_compute_sens(ocp_solver_small, sensitivity_solver_small, x0)
+
+    print(u0_opt_large)
+    print(du0_opt_dx0_large)
+    print(u0_opt_small)
+    print(du0_opt_dx0_small)
+
+    assert np.allclose(u0_opt_large, u0_opt_small), "Optimal control inputs do not match"
+    assert np.allclose(du0_opt_dx0_large, du0_opt_dx0_small), "Sensitivities do not match"
+
+    print("Solutions and sensitivities match.")

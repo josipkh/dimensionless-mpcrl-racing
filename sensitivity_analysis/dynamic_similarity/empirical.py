@@ -190,7 +190,7 @@ def test_with_finite_differences(
         plt.show()
     else:
         output_path = output_file or "output/plot_sens_similarity.png"
-        plt.savefig(output_path, dpi=300)
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"saved plot to {output_path}")
         plt.close()
 

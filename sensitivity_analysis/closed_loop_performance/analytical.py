@@ -161,29 +161,6 @@ def calculate_closed_loop_cost_sensitivity(car_params: CarParams, log: dict) -> 
     return Gamma_norm.flatten()
 
 
-# TODO: remove test
-def compare_solutions_and_sensitivities():
-    ocp_large = export_ocp(car_params=get_large_car_params(), dimensionless=True)
-    ocp_solver_large, sensitivity_solver_large = create_solvers(ocp_large)
-
-    ocp_small = export_ocp(car_params=get_default_car_params(), dimensionless=True)
-    ocp_solver_small, sensitivity_solver_small = create_solvers(ocp_small)
-
-    x0 = np.array([1.0, 0.0, 0.0, 1.0, 0.5, 0.0])  # TODO: find a state with larger gradients
-    u0_opt_large, du0_opt_dx0_large = solve_ocp_and_compute_sens(ocp_solver_large, sensitivity_solver_large, x0)
-    u0_opt_small, du0_opt_dx0_small = solve_ocp_and_compute_sens(ocp_solver_small, sensitivity_solver_small, x0)
-
-    print(u0_opt_large)
-    print(du0_opt_dx0_large)
-    print(u0_opt_small)
-    print(du0_opt_dx0_small)
-
-    assert np.allclose(u0_opt_large, u0_opt_small), "Optimal control inputs do not match"
-    assert np.allclose(du0_opt_dx0_large, du0_opt_dx0_small), "Sensitivities do not match"
-
-    print("Solutions and sensitivities match.")
-
-
 if __name__ == "__main__":
     from race_car.utils.config import get_default_car_params, get_large_car_params
     from race_car.utils.scaling import get_transformation_matrices
