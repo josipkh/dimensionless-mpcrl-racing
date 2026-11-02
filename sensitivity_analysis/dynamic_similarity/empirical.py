@@ -5,6 +5,7 @@ import casadi as ca
 from scipy.stats import qmc
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 
 from acados_template import AcadosModel
 
@@ -152,12 +153,15 @@ def test_with_finite_differences(
     
     plt.plot(0, 0, 'rX', markersize=14, label=r'Nominal $\pi$', zorder=4)
 
-    plt.xlabel(fr'Relative Perturbation in $\pi_{idx1}$ ($\Delta\pi_{idx1} / \pi_{idx1}$)', fontsize=12)
-    plt.ylabel(fr'Relative Perturbation in $\pi_{idx2}$ ($\Delta\pi_{idx2} / \pi_{idx2}$)', fontsize=12)
-    plt.title(fr'Mean Squared Error in $x^+$ vs. $\pi_{idx1}$ & $\pi_{idx2}$', fontsize=14, pad=15)
-    
+    plt.gca().xaxis.set_major_formatter(PercentFormatter(xmax=1.0))
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(xmax=1.0))
+
+    plt.xlabel(fr'$\Delta\pi_{idx1}\ /\ \pi_{idx1}$ [%]', fontsize=12)
+    plt.ylabel(fr'$\Delta\pi_{idx2}\ /\ \pi_{idx2}$ [%]', fontsize=12)
+    # plt.title(fr'Mean Squared Error in $x^+$ vs. $\pi_{idx1}$ & $\pi_{idx2}$', fontsize=14, pad=15)
+
     cbar = plt.colorbar(contour_filled)
-    cbar.set_label(r'$\mathbb{E}[||\Delta x^+||^2]$', fontsize=12)
+    cbar.ax.set_title(r'$\mathbb{E}[||\Delta x^+||^2]$', fontsize=12)
     
     plt.grid(True, linestyle=':', alpha=0.3, color='white')
     plt.legend(loc='upper right')
