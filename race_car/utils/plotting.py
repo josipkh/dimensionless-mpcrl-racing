@@ -13,6 +13,12 @@ from race_car.utils.config import CarParams, get_default_car_params
 from race_car.utils.track import frenet2global, get_track, global2frenet
 
 
+def _savefig(output_path: str | os.PathLike) -> None:
+    """Save the current figure, creating its parent directory if necessary."""
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+
 def plot_results_track(
     state_log: np.ndarray,
     car_params: CarParams,
@@ -141,7 +147,7 @@ def plot_results_track(
         plt.show(block=False)
     else:
         output_path = output_file or "output/plot_track.png"
-        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        _savefig(output_path)
         print(f"saved track plot to {output_path}")
         plt.close()
 
@@ -173,7 +179,7 @@ def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_
         plt.show(block=False)
     else:
         output_path = output_file or "output/plot_classic.png"
-        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        _savefig(output_path)
         print(f"saved classic plot to {output_path}")
         plt.close()
 
@@ -196,7 +202,7 @@ def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_
         plt.show(block=False)
     else:
         output_path = output_file or "output/plot_lat_acc.png"
-        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        _savefig(output_path)
         print(f"saved lateral acceleration plot to {output_path}")
         plt.close()
 
