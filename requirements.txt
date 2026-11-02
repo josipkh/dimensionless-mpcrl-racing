@@ -1,0 +1,14 @@
+# Runtime and test dependencies used directly by this repository.
+# leap-c[test] installs most of these as well; they are listed here so the
+# project dependencies are explicit and CI installs the same set.
+numpy
+scipy
+casadi
+sympy
+gymnasium
+torch
+tqdm
+matplotlib
+PyYAML
+tensordict
+pytest
