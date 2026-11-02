@@ -13,114 +13,6 @@ from race_car.utils.config import CarParams, get_default_car_params
 from race_car.utils.track import frenet2global, get_track, global2frenet
 
 
-def plot_track(car_params: CarParams):
-    """Plots the track for the given car parameters."""
-    import matplotlib.pyplot as plt
-
-    _, xref, yref, psiref, _ = get_track(car_params=car_params)
-
-    plt.figure(figsize=(10, 8))
-    plt.plot(xref, yref, label='Track Centerline', color='blue')
-    step = 20
-    plt.quiver(
-        xref[::step],
-        yref[::step],
-        np.cos(psiref[::step]),
-        np.sin(psiref[::step]),
-        angles='xy',
-        scale_units='xy',
-        scale=5*get_default_car_params().l.item()/car_params.l.item(),
-        color='red',
-        width=0.003,
-        label='Heading'
-    )
-    plt.axis('equal')
-    plt.title('Track Centerline with Heading Arrows {}'.format('(L = {:.2f} m)'.format(car_params.l.item())))
-    plt.xlabel('X [m]')
-    plt.ylabel('Y [m]')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show(block=False)
-
-
-def plot_Fxd_surface(car_params: CarParams):
-    """
-    Plots the Fxd curve over speed (v) and throttle (D).
-
-    Parameters:
-        cm1, cm2, cr2, cr0, cr3: car parameters
-        v_range: tuple (min_v, max_v)
-        D_range: tuple (min_D, max_D)
-        resolution: number of points for meshgrid
-    """
-    default_v_max = get_default_car_params().v_max.item()
-    default_cr3 = get_default_car_params().cr3.item()
-    v_max = default_v_max * default_cr3 / car_params.cr3.item()
-    v_range = (0, v_max)
-    D_range = (0, 1)
-    resolution = 100
-
-    # Create meshgrid of v and D
-    v = np.linspace(*v_range, resolution)
-    D = np.linspace(*D_range, resolution)
-    V, D_grid = np.meshgrid(v, D)
-
-    # Compute Fxd over the grid
-    cm1 = car_params.cm1.item()
-    cm2 = car_params.cm2.item()
-    cr2 = car_params.cr2.item()
-    cr0 = car_params.cr0.item()
-    cr3 = car_params.cr3.item()
-    Fxd = (cm1 - cm2 * V) * D_grid - cr2 * V**2 - cr0 * np.tanh(cr3 * V)
-
-    # Plotting
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(V, D_grid, Fxd, cmap='viridis')
-    ax.set_xlabel('Speed v [m/s]')
-    ax.set_ylabel('Throttle D [0-1]')
-    ax.set_zlabel('Fxd [N]')
-    ax.set_title('Fxd vs Speed and Throttle (L = {:.2f} m)'.format(car_params.l.item()))
-    plt.tight_layout()
-    plt.show(block=False)
-
-
-def plot_Fxd_vs_D_slices(car_params: CarParams, num_slices: int = 10):
-    """
-    Plots Fxd vs Throttle (D) for different fixed speeds (v).
-    """
-    default_v_max = get_default_car_params().v_max.item()
-    default_cr3 = get_default_car_params().cr3.item()
-    v_max = default_v_max * default_cr3 / car_params.cr3.item()
-
-    cm1 = car_params.cm1.item()
-    cm2 = car_params.cm2.item()
-    cr2 = car_params.cr2.item()
-    cr0 = car_params.cr0.item()
-    cr3 = car_params.cr3.item()
-
-    D = np.linspace(0, 1, 200)
-
-    # Choose speeds for slicing (linearly spaced from 0 to v_max)
-    v_slices = np.linspace(0, v_max, num_slices)
-
-    plt.figure(figsize=(10, 6))
-
-    for v in v_slices:
-        Fxd = (cm1 - cm2 * v) * D - cr2 * v**2 - cr0 * np.tanh(cr3 * v)
-        label = f"v = {v:.2f} m/s"
-        plt.plot(D, Fxd, label=label)
-
-    plt.xlabel("Throttle D [0-1]")
-    plt.ylabel("Fxd [N]")
-    plt.title("Fxd vs Throttle for Different Speeds (L = {:.2f} m)".format(car_params.l.item()))
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show(block=False)
-
-
 def plot_results_track(
     state_log: np.ndarray,
     car_params: CarParams,
@@ -249,7 +141,7 @@ def plot_results_track(
         plt.show(block=False)
     else:
         output_path = output_file or "output/plot_track.png"
-        plt.savefig(output_path, dpi=300)
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
         print(f"saved track plot to {output_path}")
         plt.close()
 
@@ -281,7 +173,7 @@ def plot_results_classic(simX: np.ndarray, simU: np.ndarray, t: np.ndarray, car_
         plt.show(block=False)
     else:
         output_path = output_file or "output/plot_classic.png"
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
         print(f"saved classic plot to {output_path}")
         plt.close()
 
@@ -304,7 +196,7 @@ def plot_lat_acc(simX: np.ndarray, t: np.ndarray, car_params: CarParams, output_
         plt.show(block=False)
     else:
         output_path = output_file or "output/plot_lat_acc.png"
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
         print(f"saved lateral acceleration plot to {output_path}")
         plt.close()
 
@@ -333,15 +225,6 @@ if __name__ == "__main__":
 
     car_params = get_default_car_params()
     car_params_sim = get_large_car_params()
-
-    # plot_track(car_params=car_params)
-    # plot_track(car_params=car_params_sim)
-
-    # plot_Fxd_surface(car_params=car_params)
-    # plot_Fxd_surface(car_params=car_params_sim)
-
-    # plot_Fxd_vs_D_slices(car_params=car_params)
-    # plot_Fxd_vs_D_slices(car_params=car_params_sim)
 
     try:
         npz_file = np.load("race_car/jkh_test/small_car_results.npz")

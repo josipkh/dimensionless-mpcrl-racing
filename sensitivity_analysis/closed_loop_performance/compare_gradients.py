@@ -16,7 +16,7 @@ def compare_gradients(car_params: CarParams, delta: float = 0.05, n_points: int 
     pi_nominal = get_pi_groups(car_params)
     npi = len(pi_nominal)
     data_path = "output/gradient_comparison.npz"
-    plot_output_path = "output/gradient_comparison.png"
+    plot_output_path = "output/gradient_comparison.pdf"
 
     # load or generate the data
     os.makedirs("output", exist_ok=True)
@@ -97,9 +97,9 @@ def compare_gradients(car_params: CarParams, delta: float = 0.05, n_points: int 
         ax.axhline(0, color='k', linestyle=':', alpha=0.5)
         ax.axvline(0, color='k', linestyle=':', alpha=0.5)
         
-        ax.set_xlabel(f"$\\Delta\\pi_{{{i_param+1}}} / \\pi_{{{i_param+1}}}$")
+        ax.set_xlabel(f"$\\Delta\\pi_{{{i_param+1}}}\\ /\\ \\pi_{{{i_param+1}}}$")
         if i_param in [0, 3]:  # Leftmost plots of row 1 and row 2
-            ax.set_ylabel("$\\Delta J / J_0$")
+            ax.set_ylabel("$\\Delta\\ J\\ /\\ J_0$")
             
         ax.set_title(f"$\\pi_{{{i_param+1}}}$")
         ax.grid(True)
