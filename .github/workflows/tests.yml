@@ -70,7 +70,7 @@ jobs:
     - name: Install CPU PyTorch
       run: |
         pip install --upgrade pip
-        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install "torch==2.10.0" --index-url https://download.pytorch.org/whl/cpu
 
     - name: Install Python interface
       working-directory: ${{ env.ACADOS_PATH }}
@@ -78,11 +78,14 @@ jobs:
 
     - name: Install leap-c
       working-directory: ${{ env.LEAP_C_PATH }}
-      run: pip install -e ".[test]"
+      run: pip install -e .
 
     - name: Install project dependencies
       working-directory: ${{ github.workspace }}
       run: pip install -r requirements.txt
+
+    - name: Verify dependency consistency
+      run: pip check
 
     - name: Run tests
       working-directory: ${{ github.workspace }}

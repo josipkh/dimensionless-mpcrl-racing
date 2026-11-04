@@ -1,14 +1,20 @@
-# Runtime and test dependencies used directly by this repository.
-# leap-c[test] installs most of these as well; they are listed here so the
-# project dependencies are explicit and CI installs the same set.
-numpy
-scipy
-casadi
-sympy
-gymnasium
-torch
-tqdm
-matplotlib
-PyYAML
-tensordict
-pytest
+# Pinned runtime and test dependencies used directly by this repository.
+# These are the versions the project is developed and tested against.
+# CI installs leap-c without optional extras and then installs this file, so it
+# tests the same Python dependency versions as local development.
+numpy==2.4.2
+scipy==1.15.2
+casadi==3.7.2
+sympy==1.14.0
+gymnasium==1.1.1
+torch==2.10.0
+tqdm==4.67.3
+matplotlib==3.10.5
+PyYAML==6.0.2
+tensordict==0.13.0
+pytest==8.4.0
+
+# Used by the race-car training scripts and leap-c runtime.
+pygame==2.6.1
+tensorboard==2.19.0
+moviepy==2.2.1
