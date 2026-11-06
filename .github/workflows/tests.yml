@@ -8,10 +8,6 @@ jobs:
   run_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
       LEAP_C_PATH: ${{ github.workspace }}/external/leap-c
@@ -20,73 +16,61 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
 
-    - name: Checkout repository
-      uses: actions/checkout@v6
-      with:
-        submodules: 'recursive'
+      - name: Verify paths (debug)
+        run: |
+          echo "workspace=${{ github.workspace }}"
+          echo "LEAP_C_PATH=${{ env.LEAP_C_PATH }}"
+          echo "ACADOS_PATH=${{ env.ACADOS_PATH }}"
+          ls -la "${{ env.ACADOS_PATH }}"
+          test -d "${{ env.ACADOS_PATH }}"
 
-    - name: Verify paths (debug)
-      run: |
-        echo "workspace=${{ github.workspace }}"
-        echo "LEAP_C_PATH=${{ env.LEAP_C_PATH }}"
-        echo "ACADOS_PATH=${{ env.ACADOS_PATH }}"
-        ls -la "${{ env.ACADOS_PATH }}"
-        test -d "${{ env.ACADOS_PATH }}"
+      - name: Build acados
+        working-directory: ${{ env.ACADOS_PATH }}
+        run: |
+          cmake -S . -B build -DACADOS_WITH_OPENMP=ON -DACADOS_NUM_THREADS=1
+          cmake --build build --target install -- -j"$(nproc)"
 
-    - name: Build acados
-      working-directory: ${{ env.ACADOS_PATH }}
-      run: |
-        cmake -S . -B build -DACADOS_WITH_OPENMP=ON -DACADOS_NUM_THREADS=1
-        cmake --build build --target install -- -j"$(nproc)"
+      - name: Install Tera
+        working-directory: ${{ env.ACADOS_PATH }}
+        shell: bash
+        run: .github/linux/install_tera.sh
 
-    - name: Install Tera
-      working-directory: ${{ env.ACADOS_PATH }}
-      shell: bash
-      run: .github/linux/install_tera.sh
+      - name: Export paths
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        run: |
+          echo "ACADOS_SOURCE_DIR=${{ env.ACADOS_PATH }}" >> $GITHUB_ENV
+          echo "ACADOS_INSTALL_DIR=${{ env.ACADOS_PATH }}" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${{ env.ACADOS_PATH }}/lib" >> $GITHUB_ENV
+          echo "${{ env.ACADOS_PATH }}/bin" >> $GITHUB_PATH
 
-    - name: Export paths
-      working-directory: ${{ github.workspace }}
-      shell: bash
-      run: |
-        echo "ACADOS_SOURCE_DIR=${{ env.ACADOS_PATH }}" >> $GITHUB_ENV
-        echo "ACADOS_INSTALL_DIR=${{ env.ACADOS_PATH }}" >> $GITHUB_ENV
-        echo "LD_LIBRARY_PATH=${{ env.ACADOS_PATH }}/lib" >> $GITHUB_ENV
-        echo "${{ env.ACADOS_PATH }}/bin" >> $GITHUB_PATH
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        working-directory: ${{ github.workspace }}
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Cache pip dependencies
-      uses: actions/cache@v5
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-py${{ matrix.python-version }}-pip-${{ hashFiles('external/leap-c/pyproject.toml', 'requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-py${{ matrix.python-version }}-pip-
+      - name: Install acados Python interface
+        working-directory: ${{ env.ACADOS_PATH }}
+        run: pip install --no-deps interfaces/acados_template
 
-    - name: Install CPU PyTorch
-      run: |
-        pip install --upgrade pip
-        pip install "torch==2.10.0" --index-url https://download.pytorch.org/whl/cpu
+      - name: Install leap-c
+        working-directory: ${{ env.LEAP_C_PATH }}
+        run: pip install --no-deps -e .
 
-    - name: Install Python interface
-      working-directory: ${{ env.ACADOS_PATH }}
-      run: pip install interfaces/acados_template
+      - name: Verify dependency consistency
+        run: pip check
 
-    - name: Install leap-c
-      working-directory: ${{ env.LEAP_C_PATH }}
-      run: pip install -e .
-
-    - name: Install project dependencies
-      working-directory: ${{ github.workspace }}
-      run: pip install -r requirements.txt
-
-    - name: Verify dependency consistency
-      run: pip check
-
-    - name: Run tests
-      working-directory: ${{ github.workspace }}
-      run: pytest -v
+      - name: Run tests
+        working-directory: ${{ github.workspace }}
+        run: pytest -v

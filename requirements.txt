@@ -1,20 +1,95 @@
-# Pinned runtime and test dependencies used directly by this repository.
-# These are the versions the project is developed and tested against.
-# CI installs leap-c without optional extras and then installs this file, so it
-# tests the same Python dependency versions as local development.
+# Fully pinned Python environment for dimensionless-mpcrl-racing.
+#
+# Generated from `pip freeze` in the project virtualenv. Every third-party
+# package in the environment is pinned here. The two local editable packages
+# from `external/` are listed in the section at the bottom.
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# CI installs the local acados/leap-c packages from the pinned submodules
+# separately, before installing this file.
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# --- Numerical / scientific core ------------------------------------------
 numpy==2.4.2
 scipy==1.15.2
 casadi==3.7.2
 sympy==1.14.0
-gymnasium==1.1.1
-torch==2.10.0
-tqdm==4.67.3
-matplotlib==3.10.5
+mpmath==1.3.0
 PyYAML==6.0.2
-tensordict==0.13.0
-pytest==8.4.0
 
-# Used by the race-car training scripts and leap-c runtime.
-pygame==2.6.1
+# --- Acados Python interface ----------------------------------------------
+Cython==3.2.4
+Deprecated==1.3.1
+wrapt==2.1.1
+
+# --- Plotting -------------------------------------------------------------
+matplotlib==3.10.5
+contourpy==1.3.3
+cycler==0.12.1
+fonttools==4.61.1
+kiwisolver==1.4.9
+packaging==26.0
+pillow==11.3.0
+pyparsing==3.3.2
+python-dateutil==2.9.0.post0
+six==1.17.0
+
+# --- PyTorch / reinforcement learning -------------------------------------
+torch==2.10.0+cpu
+gymnasium==1.1.1
+tensordict==0.13.0
+cloudpickle==3.1.2
+Farama-Notifications==0.0.4
+filelock==3.25.0
+fsspec==2026.2.0
+importlib_metadata==9.0.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+networkx==3.6.1
+orjson==3.11.9
+pyvers==0.2.3
+setuptools==82.0.0
+typing_extensions==4.15.0
+zipp==3.23.0
+
+# --- Logging / progress ----------------------------------------------------
 tensorboard==2.19.0
+absl-py==2.4.0
+grpcio==1.78.0
+Markdown==3.10.2
+protobuf==6.33.5
+tensorboard-data-server==0.7.2
+Werkzeug==3.1.6
+tqdm==4.67.3
+
+# --- Rendering / video -----------------------------------------------------
+pygame==2.6.1
 moviepy==2.2.1
+decorator==5.2.1
+ImageIO==2.37.2
+imageio-ffmpeg==0.6.0
+proglog==0.1.12
+python-dotenv==1.2.2
+
+# --- Testing ---------------------------------------------------------------
+pytest==8.4.0
+iniconfig==2.3.0
+pluggy==1.6.0
+Pygments==2.19.2
+
+# --- Local editable packages (not installed from PyPI) ---------------------
+#
+# Pinned submodule commits:
+#   external/leap-c                 b335d026edc446275e7c9a48ef83e3d24cdad67a
+#   external/leap-c/external/acados 59d93e17d2985fdd73fc58b8a83ed8f83a024171
+#
+# Install after `git submodule update --init --recursive`:
+#   pip install --no-deps -e external/leap-c/external/acados/interfaces/acados_template
+#   pip install --no-deps -e external/leap-c
+#
+# Installed versions:
+#   acados 0.5.5 (the Python package still reports acados_template==0.5.1)
+#   leap-c==2025.0.0
