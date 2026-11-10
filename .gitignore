@@ -6,7 +6,11 @@ update_leap_c.sh
 output
 c_generated_code*
 codegen*
+# acados and experiment outputs
 *.json
+# ...but keep the shared VS Code workspace configuration
+!/.vscode/launch.json
+!/.vscode/settings.json
 *.pdf
 *.csv
 *.mp4

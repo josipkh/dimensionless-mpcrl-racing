@@ -15,3 +15,9 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 
 - `leap-c`: [v0.2.0-alpha](https://github.com/leap-c/leap-c/releases/tag/v0.2.0-alpha) (slightly modified)
 - `acados`: [v0.5.5](https://github.com/acados/acados/releases/tag/v0.5.5)
+
+## Local development setup
+
+See [SETUP.md](SETUP.md) for the Python 3.12 environment, acados build, shell
+environment variables, test commands, and VS Code debugger configuration used
+for local development.
