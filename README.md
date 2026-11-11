@@ -21,3 +21,46 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 See [SETUP.md](SETUP.md) for the Python 3.12 environment, acados build, shell
 environment variables, test commands, and VS Code debugger configuration used
 for local development.
+
+## Running the transfer experiments
+
+Transfer experiments pretrain SAC-ZOP on one car (the *source*) and fine-tune it
+on the other (the *target*). Both runs share one output directory, so the target
+run continues from the source checkpoint. Every experiment is repeated for both
+MPC formulations (`dimensional` and `dimensionless`) and seeds `0`-`4`.
+
+```bash
+# small -> large (default direction)
+race_car/scripts/run_all_sac_zop_transfer.sh
+
+# large -> small
+TRANSFER_DIRECTION=large_to_default race_car/scripts/run_all_sac_zop_transfer.sh
+```
+
+The source car is pretrained for 50k steps and the target car is fine-tuned for
+100k steps. The floating point precision is selectable per run and defaults to
+`float32`:
+
+```bash
+python race_car/scripts/run_sac_zop_transfer.py \
+    --size default --dimensionless --seed 0 --train_steps 50000 --dtype float32
+```
+
+Average the per-seed TensorBoard logs afterwards with
+`race_car/scripts/average_results.sh <results-folder>`.
+
+### Reproducing the 2026_06_12 / 2026_06_13 runs
+
+`output/2026_06_12` (small -> large) and `output/2026_06_13` (large -> small) are
+the reference transfer runs. Their script settings are matched by the current
+scripts: the wide parameter bounds in `race_car/utils/config.py`, the 50k/100k
+source/target budgets, and `--lax-steps` in `average_results.sh`.
+
+The `leap-c` revision used for those runs (`5c7fe3c`, plus a local
+`save_p_global=True` patch) has since been rewritten and is no longer reachable.
+The currently pinned `leap-c` (`c8a7e3e`) differs in ways that affect results:
+
+- min-max normalisation is applied to `[-1, 1]` (`f982313`) instead of the
+  `[0, 1]` used in June;
+- the local `save_p_global=True` patch in `create_batch_solver` is absent;
+- `acados` is at v0.5.5.

@@ -9,7 +9,7 @@ import os
 import shutil
 import torch
 
-from leap_c.run import default_output_path, init_run
+from leap_c.run import default_output_path, init_run, validate_torch_dtype_arg
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
 from leap_c.utils.git import log_git_hash_and_diff
 
@@ -89,6 +89,12 @@ if __name__ == "__main__":
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timestamp", type=str, default=None)
+    parser.add_argument(
+        "--dtype",
+        type=validate_torch_dtype_arg,
+        default=torch.float32,
+        help="Floating point precision for torch tensors (default: float32).",
+    )
     args = parser.parse_args()
 
     # select the car parameters
@@ -129,7 +135,7 @@ if __name__ == "__main__":
 
     with tee_logging(output_path):
         t_start = time.monotonic()
-        print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
+        print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}, dtype={args.dtype}")
         cfg = create_cfg(seed=args.seed)
         train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
         val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
@@ -142,7 +148,7 @@ if __name__ == "__main__":
             val_env=val_env,
             output_path=output_path,
             device="cpu",
-            dtype=torch.float64,
+            dtype=args.dtype,
         )
 
         init_run(trainer, cfg, output_path)

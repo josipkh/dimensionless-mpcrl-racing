@@ -83,7 +83,7 @@ Pygments==2.19.2
 # --- Local editable packages (not installed from PyPI) ---------------------
 #
 # Pinned submodule commits:
-#   external/leap-c                 b335d026edc446275e7c9a48ef83e3d24cdad67a
+#   external/leap-c                 c8a7e3edadbad98a3fd9455aefdd64e19468876c
 #   external/leap-c/external/acados 59d93e17d2985fdd73fc58b8a83ed8f83a024171
 #
 # Install after `git submodule update --init --recursive`:
