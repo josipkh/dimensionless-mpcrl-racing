@@ -21,13 +21,13 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 From the repository root, run one command:
 
 ```bash
-./reproduce.sh
+./docker/reproduce.sh
 ```
 
 On Windows PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\reproduce.ps1
+powershell -ExecutionPolicy Bypass -File .\docker\reproduce.ps1
 ```
 
 Both commands set up Docker if needed, build the pinned CPU-only image

@@ -22,7 +22,8 @@ $ProgressPreference = "SilentlyContinue"
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Root = Split-Path -Parent $ScriptDir
 Set-Location -LiteralPath $Root
 
 function Write-Step {
@@ -272,7 +273,7 @@ if (-not $env:REPRO_RUN_ID) {
 $resultsDir = Join-Path $Root "results"
 New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
 $hostInfo = @(
-    "# Host repository state captured by reproduce.ps1",
+    "# Host repository state captured by docker/reproduce.ps1",
     "date_utc: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss') + 'Z')",
     "",
     "## commit",
@@ -291,7 +292,7 @@ $hostInfo = @(
     (New-Object System.Text.UTF8Encoding($false))
 )
 
-$composeFile = Join-Path $Root "docker\compose.yaml"
+$composeFile = Join-Path $ScriptDir "compose.yaml"
 
 Write-Step "Building the reproduction image..."
 & docker compose -f $composeFile build `

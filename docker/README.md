@@ -1,10 +1,10 @@
 # Reproducibility with Docker
 
 This directory contains the CPU-only reproduction environment for the
-experiments. The repository root provides the two one-command entry points:
+experiments. It also provides the two one-command entry points:
 
-- `reproduce.sh` — Linux and WSL.
-- `reproduce.ps1` — Windows PowerShell.
+- `docker/reproduce.sh` — Linux and WSL.
+- `docker/reproduce.ps1` — Windows PowerShell.
 
 Both build the pinned environment and run the complete pipeline: tests, all
 sensitivity analyses, and every RL experiment.
@@ -14,13 +14,13 @@ sensitivity analyses, and every RL experiment.
 Linux or WSL, from the repository root:
 
 ```bash
-./reproduce.sh
+./docker/reproduce.sh
 ```
 
 Windows PowerShell, from the repository root:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\reproduce.ps1
+powershell -ExecutionPolicy Bypass -File .\docker\reproduce.ps1
 ```
 
 If Docker is already installed and running, these commands are
@@ -51,7 +51,7 @@ waits for the daemon. This may require one UAC/admin approval.
 **WSL.** Docker Desktop is expected. The script can start Docker Desktop from
 WSL. If the `docker` CLI is not visible, enable this distribution under
 *Docker Desktop → Settings → Resources → WSL Integration* once, or run
-`reproduce.ps1` from Windows instead.
+`.\docker\reproduce.ps1` from Windows instead.
 
 ### When interaction is unavoidable
 
@@ -88,24 +88,24 @@ The scripts default to `full`. A shorter mode can be passed as the first
 argument on Linux/WSL, or with `-Mode` on Windows:
 
 ```bash
-./reproduce.sh analysis    # tests + all sensitivity analyses
-./reproduce.sh test        # pytest only
-./reproduce.sh rl          # main SAC-ZOP suite only
+./docker/reproduce.sh analysis    # tests + all sensitivity analyses
+./docker/reproduce.sh test        # pytest only
+./docker/reproduce.sh rl          # main SAC-ZOP suite only
 ```
 
 ```powershell
-.\reproduce.ps1 -Mode analysis
-.\reproduce.ps1 -Mode test
-.\reproduce.ps1 -Mode rl
+.\docker\reproduce.ps1 -Mode analysis
+.\docker\reproduce.ps1 -Mode test
+.\docker\reproduce.ps1 -Mode rl
 ```
 
 Runtime configuration is passed through the environment, for example:
 
 ```bash
-RL_SEEDS="0 1" RL_JOBS=2 ./reproduce.sh rl
-RL_MAIN_STEPS=2000 RL_SEEDS="0" ./reproduce.sh rl
-ANALYSIS_STEPS=dynamic-analytical,compare-gradients ./reproduce.sh analysis
-RL_SUITE=transfer ./reproduce.sh rl
+RL_SEEDS="0 1" RL_JOBS=2 ./docker/reproduce.sh rl
+RL_MAIN_STEPS=2000 RL_SEEDS="0" ./docker/reproduce.sh rl
+ANALYSIS_STEPS=dynamic-analytical,compare-gradients ./docker/reproduce.sh analysis
+RL_SUITE=transfer ./docker/reproduce.sh rl
 ```
 
 On Windows, set the same variables in PowerShell before running the script:
@@ -113,7 +113,7 @@ On Windows, set the same variables in PowerShell before running the script:
 ```powershell
 $env:RL_SEEDS = "0 1"
 $env:RL_JOBS = 2
-.\reproduce.ps1 -Mode rl
+.\docker\reproduce.ps1 -Mode rl
 ```
 
 The RL jobs are memory-hungry. The default concurrency inside the container is
@@ -141,8 +141,6 @@ make -C docker shell                # interactive shell in the container
 ## Layout
 
 ```text
-reproduce.sh          # Linux/WSL one-command entry point
-reproduce.ps1         # Windows one-command entry point
 .gitattributes        # keeps scripts and container files at LF
 .dockerignore         # must stay at the build-context root
 docker/
@@ -150,6 +148,8 @@ docker/
 ├── Makefile
 ├── README.md
 ├── compose.yaml
+├── reproduce.sh      # Linux/WSL one-command entry point
+├── reproduce.ps1     # Windows one-command entry point
 └── scripts/
     ├── docker_entrypoint.sh
     ├── run_analysis.sh
@@ -167,5 +167,5 @@ distributed as a Linux amd64 binary, so ARM64 hosts are not supported. On
 Windows, Docker Desktop must be in Linux-containers mode with the WSL2 backend.
 
 For the best Windows performance, clone the repository inside the WSL2
-filesystem and run `./reproduce.sh` from WSL. The native PowerShell script also
-works, but Windows bind mounts are slower than WSL2-native files.
+filesystem and run `./docker/reproduce.sh` from WSL. The native PowerShell script
+also works, but Windows bind mounts are slower than WSL2-native files.

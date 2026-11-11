@@ -6,7 +6,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
-ROOT="$SCRIPT_DIR"
+ROOT="$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
 cd "$ROOT"
 
 log() { printf '==> %s\n' "$*"; }
@@ -25,7 +25,7 @@ if [[ $# -gt 1 ]]; then
 fi
 
 [[ "$(uname -s)" == "Linux" ]] || \
-    die "This script is for Linux/WSL. On Windows, run: powershell -ExecutionPolicy Bypass -File .\\reproduce.ps1"
+    die "This script is for Linux/WSL. On Windows, run: powershell -ExecutionPolicy Bypass -File .\\docker\\reproduce.ps1"
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -141,7 +141,7 @@ ensure_docker() {
     if ! command -v docker >/dev/null 2>&1; then
         if [[ "$IS_WSL" == true ]]; then
             try_start_docker_desktop_from_wsl || die \
-                "Docker is not available in this WSL distribution. Install Docker Desktop on Windows (with WSL integration), or run reproduce.ps1 from Windows, then rerun."
+                "Docker is not available in this WSL distribution. Install Docker Desktop on Windows (with WSL integration), or run .\\docker\\reproduce.ps1 from Windows, then rerun."
             hash -r 2>/dev/null || true
             command -v docker >/dev/null 2>&1 || die \
                 "Docker Desktop was found, but the docker CLI is not available in WSL. Enable this distribution under Docker Desktop > Settings > Resources > WSL Integration, then rerun."
@@ -202,7 +202,7 @@ export REPRO_RUN_ID="${REPRO_RUN_ID:-$(date -u +%Y%m%d_%H%M%S)}"
 
 mkdir -p "$ROOT/results"
 {
-    echo "# Host repository state captured by reproduce.sh"
+    echo "# Host repository state captured by docker/reproduce.sh"
     echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo
     echo "## commit"
@@ -227,7 +227,7 @@ if [[ "$MODE" == "rl" ]]; then
     RUN_ARGS=(rl "${RL_SUITE:-main}")
 fi
 
-COMPOSE=("${DOCKER[@]}" compose -f "$ROOT/docker/compose.yaml")
+COMPOSE=("${DOCKER[@]}" compose -f "$SCRIPT_DIR/compose.yaml")
 
 log "Building the reproduction image..."
 "${COMPOSE[@]}" build \
