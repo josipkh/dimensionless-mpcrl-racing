@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from tempfile import mkdtemp
 import os
 import shutil
+import torch
 
 from leap_c.run import default_output_path, init_run
 from leap_c.torch.rl.sac_zop import SacZopTrainer, SacZopTrainerConfig
@@ -141,6 +142,7 @@ if __name__ == "__main__":
             val_env=val_env,
             output_path=output_path,
             device="cpu",
+            dtype=torch.float64,
         )
 
         init_run(trainer, cfg, output_path)
