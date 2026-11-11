@@ -18,20 +18,27 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 
 ## One-click reproducibility with Docker
 
-From a fresh clone with Docker and Docker Compose installed, run:
+From the repository root, run one command:
 
 ```bash
-make -C docker
+./reproduce.sh
 ```
 
-This initializes the pinned submodules, builds the CPU-only image (pinned
-Python environment plus acados and leap-c from the submodules), runs the test
-suite, and runs all sensitivity analyses. No host Python, acados, or CMake
-installation is needed.
+On Windows PowerShell:
 
-All Docker files and the full usage documentation live in
-[`docker/`](docker/README.md), including the longer RL experiment suites and
-the runtime configuration variables.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\reproduce.ps1
+```
+
+Both commands set up Docker if needed, build the pinned CPU-only image
+(Python environment plus acados and leap-c from the submodules), run the test
+suite and all sensitivity analyses, and then run every RL experiment. No host
+Python, acados, or CMake installation is needed. If Docker is already installed
+and running, they run without further prompts.
+
+The RL suites take many hours; see [`docker/README.md`](docker/README.md) for
+shorter modes, the Docker setup details, and the cases where a one-time
+reboot or admin approval may be required.
 
 ## Local development setup
 

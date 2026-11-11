@@ -18,8 +18,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Check shell script syntax
+        shell: bash
+        run: bash -n reproduce.sh docker/scripts/*.sh
+
+      - name: Validate PowerShell script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD/reproduce.ps1", [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+
       - name: Validate Compose configuration
         run: docker compose -f docker/compose.yaml config -q
 
-      - name: Build image and run the test suite
-        run: make -C docker test
+      - name: Run one-command reproduction (tests)
+        run: ./reproduce.sh test

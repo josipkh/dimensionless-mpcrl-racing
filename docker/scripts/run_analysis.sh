@@ -13,7 +13,10 @@ else
     STAMP="${REPRO_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
     RESULTS_ROOT="$ROOT/results/$STAMP"
     mkdir -p "$RESULTS_ROOT"
-    ln -sfn "$STAMP" "$ROOT/results/latest"
+    # Windows bind mounts may not support symlinks; fall back to a text file.
+    if ! ln -sfn "$STAMP" "$ROOT/results/latest" 2>/dev/null; then
+        printf '%s\n' "$STAMP" > "$ROOT/results/latest.txt"
+    fi
 fi
 
 RESULTS_ROOT="$(cd "$RESULTS_ROOT" && pwd)"
