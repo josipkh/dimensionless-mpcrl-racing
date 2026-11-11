@@ -8,9 +8,8 @@ c_generated_code*
 codegen*
 # acados and experiment outputs
 *.json
-# ...but keep the shared VS Code workspace configuration
-!/.vscode/launch.json
-!/.vscode/settings.json
+# VS Code workspace settings are machine-specific; keep them untracked
+.vscode/
 *.pdf
 *.csv
 *.mp4

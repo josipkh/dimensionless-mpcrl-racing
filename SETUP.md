@@ -260,12 +260,11 @@ Relevant `.vscode/settings.json` entries:
 After changing these files, reload the VS Code window and select
 `.venv/bin/python` via `Python: Select Interpreter`.
 
-The shared VS Code configuration is tracked. `.gitignore` ignores `*.json`
-for acados/experiment outputs, but re-includes the workspace files with:
+The VS Code configuration is machine-specific and intentionally untracked.
+`.gitignore` ignores the whole `.vscode/` directory:
 
 ```gitignore
-!/.vscode/launch.json
-!/.vscode/settings.json
+.vscode/
 ```
 
 ## 10. Rebuilding / recreating
