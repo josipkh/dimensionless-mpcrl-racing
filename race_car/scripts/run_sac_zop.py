@@ -20,13 +20,13 @@ from race_car.utils.log_utils import tee_logging
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
 
-def create_cfg(seed: int) -> SacZopTrainerConfig:
+def create_cfg(seed: int, train_steps: int = 100_000) -> SacZopTrainerConfig:
     # ---- Configuration ----
     cfg = SacZopTrainerConfig()
 
     # ---- Section: cfg.trainer ----
     cfg.seed = seed
-    cfg.train_steps = 100_000
+    cfg.train_steps = train_steps
     cfg.train_start = 1_000
     cfg.val_freq = 2_000
     cfg.val_num_rollouts = 1
@@ -89,6 +89,7 @@ if __name__ == "__main__":
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timestamp", type=str, default=None)
+    parser.add_argument("--train_steps", type=int, default=100_000)
     args = parser.parse_args()
 
     # select the car parameters
@@ -130,7 +131,7 @@ if __name__ == "__main__":
     with tee_logging(output_path):
         t_start = time.monotonic()
         print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
-        cfg = create_cfg(seed=args.seed)
+        cfg = create_cfg(seed=args.seed, train_steps=args.train_steps)
         train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
         val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
         controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)

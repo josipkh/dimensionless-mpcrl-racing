@@ -1,0 +1,38 @@
+name: dimensionless-mpcrl-racing
+
+services:
+  reproduce:
+    build:
+      # Paths are relative to this file's directory. The build context is the
+      # repository root so requirements.txt and the research code are available.
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        GIT_DIRTY: ${GIT_DIRTY:-unknown}
+    image: dimensionless-mpcrl-racing:local
+    working_dir: /workspace
+    init: true
+    shm_size: "1gb"
+    environment:
+      MPLBACKEND: Agg
+      PYTHONUNBUFFERED: "1"
+      OMP_NUM_THREADS: ${OMP_NUM_THREADS:-1}
+      OPENBLAS_NUM_THREADS: ${OPENBLAS_NUM_THREADS:-1}
+      MKL_NUM_THREADS: ${MKL_NUM_THREADS:-1}
+      # Runtime knobs forwarded from the host, e.g.
+      #   make rl RL_SEEDS="0 1" RL_JOBS=2
+      #   ANALYSIS_STEPS=dynamic-analytical make
+      ANALYSIS_STEPS: "${ANALYSIS_STEPS:-}"
+      REPRO_RUN_ID: "${REPRO_RUN_ID:-}"
+      RL_SEEDS: "${RL_SEEDS:-}"
+      RL_JOBS: "${RL_JOBS:-}"
+      RL_MAIN_STEPS: "${RL_MAIN_STEPS:-}"
+      RL_TRANSFER_DEFAULT_STEPS: "${RL_TRANSFER_DEFAULT_STEPS:-}"
+      RL_TRANSFER_LARGE_STEPS: "${RL_TRANSFER_LARGE_STEPS:-}"
+    volumes:
+      # Experiment logs, checkpoints, and figures written by the original
+      # scripts are persisted on the host.
+      - ../output:/workspace/output
+      # Isolated, timestamped results from the reproducibility runner.
+      - ../results:/workspace/results

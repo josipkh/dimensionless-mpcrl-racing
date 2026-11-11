@@ -1,0 +1,35 @@
+# Keep the Docker build context small and deterministic.
+.git
+**/.git
+.gitignore
+.gitmodules
+.dockerignore
+.vscode
+.venv
+.pytest_cache
+__pycache__
+**/__pycache__
+*.py[codz]
+*.egg-info
+
+# Local experiment artifacts must never leak into the image.
+output
+results
+jkh_test
+race_car/jkh_test
+*.log
+*.pdf
+*.png
+*.jpg
+*.mp4
+*.csv
+*.npy
+*.npz
+
+# acados build products are rebuilt inside the image from the pinned sources.
+external/leap-c/external/acados/build
+external/leap-c/external/acados/lib
+external/leap-c/external/acados/bin
+external/leap-c/external/acados/examples
+external/leap-c/external/acados/docs
+external/leap-c/external/acados/test

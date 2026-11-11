@@ -4,6 +4,7 @@ cleanup_pyc.sh
 update_leap_c.sh
 
 output
+results
 c_generated_code*
 codegen*
 # acados and experiment outputs

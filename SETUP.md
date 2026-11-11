@@ -1,5 +1,9 @@
 # Local development setup
 
+> For the containerized, one-command route, see
+> [Reproducibility with Docker](docker/README.md).
+> The rest of this document describes the equivalent manual setup.
+
 This note records how the project was set up and tested on a machine with
 **Ubuntu 26.04**, **no `sudo`**, and **only Python 3.14** installed. The setup
 matches the CI workflow in [`.github/workflows/tests.yml`](.github/workflows/tests.yml),

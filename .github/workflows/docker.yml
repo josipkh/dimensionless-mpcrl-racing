@@ -1,0 +1,25 @@
+name: Docker
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  container-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Compose configuration
+        run: docker compose -f docker/compose.yaml config -q
+
+      - name: Build image and run the test suite
+        run: make -C docker test

@@ -16,6 +16,23 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 - `leap-c`: [v0.2.0-alpha](https://github.com/leap-c/leap-c/releases/tag/v0.2.0-alpha) (slightly modified)
 - `acados`: [v0.5.5](https://github.com/acados/acados/releases/tag/v0.5.5)
 
+## One-click reproducibility with Docker
+
+From a fresh clone with Docker and Docker Compose installed, run:
+
+```bash
+make -C docker
+```
+
+This initializes the pinned submodules, builds the CPU-only image (pinned
+Python environment plus acados and leap-c from the submodules), runs the test
+suite, and runs all sensitivity analyses. No host Python, acados, or CMake
+installation is needed.
+
+All Docker files and the full usage documentation live in
+[`docker/`](docker/README.md), including the longer RL experiment suites and
+the runtime configuration variables.
+
 ## Local development setup
 
 See [SETUP.md](SETUP.md) for the Python 3.12 environment, acados build, shell
