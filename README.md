@@ -47,7 +47,15 @@ python race_car/scripts/run_sac_zop_transfer.py \
 ```
 
 Average the per-seed TensorBoard logs afterwards with
-`race_car/scripts/average_results.sh <results-folder>`.
+`race_car/scripts/average_results.sh <results-folder>`. This is also done
+automatically: each `run_all_*` script launches an extra `averager_<timestamp>`
+tmux session that waits for the whole batch to finish and then runs
+`average_results.sh` on the results folder. Set `AUTO_AVERAGE=0` to skip it, or
+run the watcher by hand for an in-flight batch:
+
+```bash
+race_car/scripts/wait_and_average.sh <timestamp> <results-folder>
+```
 
 ### Reproducing the 2026_06_12 / 2026_06_13 runs
 

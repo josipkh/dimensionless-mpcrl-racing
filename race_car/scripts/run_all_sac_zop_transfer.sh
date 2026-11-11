@@ -10,13 +10,19 @@
 # from the source checkpoint. The source car is pretrained briefly, the target car
 # is fine-tuned longer.
 #
+# When every session of the batch has finished, a watcher session averages the
+# per-seed TensorBoard logs (race_car/scripts/average_results.sh). Set
+# AUTO_AVERAGE=0 to skip this.
+#
 # Usage:
 #   ./race_car/scripts/run_all_sac_zop_transfer.sh
 #   TRANSFER_DIRECTION=large_to_default ./race_car/scripts/run_all_sac_zop_transfer.sh
+#   AUTO_AVERAGE=0 ./race_car/scripts/run_all_sac_zop_transfer.sh
 
 TRANSFER_DIRECTION="${TRANSFER_DIRECTION:-default_to_large}"
 
 SCRIPT="PYTHONPATH=$(pwd) python race_car/scripts/run_sac_zop_transfer.py"
+WATCHER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait_and_average.sh"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 declare -A FORMULATIONS=(
@@ -55,6 +61,17 @@ for FORMULATION in "${!FORMULATIONS[@]}"; do
     done
 
 done
+
+# Average the per-seed logs once the whole batch has finished. The output path
+# mirrors the one built by run_sac_zop_transfer.py from the timestamp.
+if [ "${AUTO_AVERAGE:-1}" = "1" ]; then
+    OUTPUT_FOLDER="output/${TIMESTAMP:0:4}_${TIMESTAMP:4:2}_${TIMESTAMP:6:2}/${TIMESTAMP:9:2}_${TIMESTAMP:11:2}_${TIMESTAMP:13:2}_sac_zop_transfer"
+    WATCHER_SESSION="averager_${TIMESTAMP}"
+    echo ""
+    echo "Starting watcher session: $WATCHER_SESSION"
+    echo "  Will average $OUTPUT_FOLDER once all sessions finish."
+    tmux new-session -d -s "$WATCHER_SESSION" "bash '$WATCHER_SCRIPT' $TIMESTAMP '$OUTPUT_FOLDER' 60 '$WATCHER_SESSION'"
+fi
 
 echo ""
 echo "All sessions launched. Use 'tmux ls' to list them."
