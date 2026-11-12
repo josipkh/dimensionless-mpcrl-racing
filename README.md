@@ -25,8 +25,8 @@ root:
 
 ```bash
 python -m race_car.hpo.tune --size default --dimensionless \
-    --search-space small --n-trials 12 --n-jobs 4
-python -m race_car.hpo.report --study-dir output/hpo/<study_name>
+    --n-trials 20 --n-jobs 4
+python -m race_car.hpo.tune --help
 ```
 
 ## Local development setup

@@ -18,7 +18,7 @@ from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 from race_car.utils.log_utils import tee_logging
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
-from race_car.hpo.config import apply_overrides, load_overrides
+from race_car.hpo.overrides import apply_overrides, load_overrides
 
 
 def create_cfg(seed: int, train_steps: int = 100_000) -> SacZopTrainerConfig:

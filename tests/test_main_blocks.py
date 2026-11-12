@@ -28,9 +28,8 @@ SELF_TEST_FILES = (
     "race_car/acados_ocp.py",
     "race_car/controller.py",
     "race_car/env.py",
-    "race_car/hpo/config.py",
-    "race_car/hpo/search_space.py",
-    "race_car/hpo/runner.py",
+    "race_car/hpo/overrides.py",
+    "race_car/hpo/tune.py",
     "sensitivity_analysis/closed_loop_performance/sensitivity_utils.py",
 )
 
