@@ -59,6 +59,11 @@ separately, and every timestamp folder under the given results folder is handled
 race_car/scripts/wait_and_average.sh <timestamp> <results-folder>
 ```
 
+If a reduction fails, `tb-reducer`'s output is saved next to the folders it
+would have written, as `<formulation>/AVERAGE_FAILED.log`, the watcher exits
+non-zero, and its tmux session is left open instead of closing itself. This
+makes a failed averaging easy to spot and to inspect.
+
 ### Reproducing the 2026_06_12 / 2026_06_13 runs
 
 `output/2026_06_12` (small -> large) and `output/2026_06_13` (large -> small) are
@@ -66,11 +71,9 @@ the reference transfer runs. Their script settings are matched by the current
 scripts: the wide parameter bounds in `race_car/utils/config.py`, the 50k/100k
 source/target budgets, and `--lax-steps` in `average_results.sh`.
 
-The `leap-c` revision used for those runs (`5c7fe3c`, plus a local
-`save_p_global=True` patch) has since been rewritten and is no longer reachable.
-The currently pinned `leap-c` (`c8a7e3e`) differs in ways that affect results:
-
-- min-max normalisation is applied to `[-1, 1]` (`f982313`) instead of the
-  `[0, 1]` used in June;
-- the local `save_p_global=True` patch in `create_batch_solver` is absent;
-- `acados` is at v0.5.5.
+The `leap-c` revision used for those runs (`5c7fe3c`) has since been rewritten
+and is no longer reachable. The currently pinned `leap-c` (`c8a7e3e`) matches
+those runs on min-max normalisation (applied to `[-1, 1]`) and is trained in
+`float32`. The local `save_p_global=True` flag is only used for debugging and
+does not affect the results, so it is not restored. The remaining known
+difference is that `acados` is at v0.5.5.
