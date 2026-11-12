@@ -18,15 +18,16 @@ from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 from race_car.utils.log_utils import tee_logging
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
+from race_car.hpo.config import apply_overrides, load_overrides
 
 
-def create_cfg(seed: int) -> SacZopTrainerConfig:
+def create_cfg(seed: int, train_steps: int = 100_000) -> SacZopTrainerConfig:
     # ---- Configuration ----
     cfg = SacZopTrainerConfig()
 
     # ---- Section: cfg.trainer ----
     cfg.seed = seed
-    cfg.train_steps = 100_000
+    cfg.train_steps = train_steps
     cfg.train_start = 1_000
     cfg.val_freq = 2_000
     cfg.val_num_rollouts = 1
@@ -89,6 +90,23 @@ if __name__ == "__main__":
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timestamp", type=str, default=None)
+    parser.add_argument("--train_steps", type=int, default=100_000)
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        default=None,
+        help="Explicit output directory (e.g. for an HPO trial). Overrides --timestamp.",
+    )
+    parser.add_argument(
+        "--config_overrides",
+        type=str,
+        default=None,
+        help=(
+            "Path to a YAML file with flat, dotted-key trainer-config overrides, "
+            "e.g. {'lr_q': 1e-4, 'critic_mlp.hidden_dims': [64, 64]}. "
+            "Used by the Optuna HPO driver and to re-run a tuned configuration."
+        ),
+    )
     args = parser.parse_args()
 
     # select the car parameters
@@ -103,7 +121,9 @@ if __name__ == "__main__":
 
     # other settings
     tags = ["sac_zop", args.size, "dimensionless" if args.dimensionless else "dimensional"]
-    if args.timestamp:
+    if args.output_path:
+        output_path = Path(args.output_path)
+    elif args.timestamp:
         dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
         output_path = Path(f"output/{timestamp_formatted}_sac_zop/{args.size}_{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}")
@@ -130,7 +150,11 @@ if __name__ == "__main__":
     with tee_logging(output_path):
         t_start = time.monotonic()
         print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}")
-        cfg = create_cfg(seed=args.seed)
+        cfg = create_cfg(seed=args.seed, train_steps=args.train_steps)
+        if args.config_overrides:
+            overrides = load_overrides(args.config_overrides)
+            apply_overrides(cfg, overrides)
+            print(f"\nApplied {len(overrides)} config override(s) from {args.config_overrides}")
         train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
         val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
         controller = RaceCarController(car_params=car_params, dimensionless=args.dimensionless)

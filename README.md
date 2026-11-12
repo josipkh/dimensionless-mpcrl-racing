@@ -16,6 +16,19 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 - `leap-c`: [v0.2.0-alpha](https://github.com/leap-c/leap-c/releases/tag/v0.2.0-alpha) (slightly modified)
 - `acados`: [v0.5.5](https://github.com/acados/acados/releases/tag/v0.5.5)
 
+## Hyperparameter optimization
+
+The SAC-ZOP experiments can be tuned with Optuna.  A multi-fidelity search-space
+and pruning setup following the RL-HPO literature is in
+[`race_car/hpo/`](race_car/hpo/README.md).  Quick start from the repository
+root:
+
+```bash
+python -m race_car.hpo.tune --size default --dimensionless \
+    --search-space small --n-trials 12 --n-jobs 4
+python -m race_car.hpo.report --study-dir output/hpo/<study_name>
+```
+
 ## Local development setup
 
 See [SETUP.md](SETUP.md) for the Python 3.12 environment, acados build, shell

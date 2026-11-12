@@ -1,0 +1,27 @@
+# Small search space: the four hyperparameters that usually matter most for
+# SAC (see Eimer et al., "Hyperparameters in Reinforcement Learning and How To
+# Tune Them", ICML 2023, Table 5 for the SAC space we mirror here).
+#
+# Every entry is sampled by Optuna under `name` and written to each `target`
+# key of the trainer config (dotted paths are supported).  If `targets` is
+# omitted, `name` itself is used as the config key.
+
+lr:
+  type: loguniform
+  low: 1.0e-6
+  high: 1.0e-2
+  targets: [lr_q, lr_pi, lr_alpha]
+
+gamma:
+  type: uniform
+  low: 0.90
+  high: 0.9999
+
+tau:
+  type: loguniform
+  low: 1.0e-3
+  high: 1.0
+
+batch_size:
+  type: categorical
+  choices: [32, 64, 128, 256]
