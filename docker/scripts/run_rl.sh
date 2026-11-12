@@ -34,7 +34,7 @@ if [[ ${#SEEDS[@]} -eq 0 ]]; then
     exit 2
 fi
 
-LOG_DIR="$ROOT/output/logs/$STAMP"
+LOG_DIR="$ROOT/output/docker/logs/$STAMP"
 mkdir -p "$LOG_DIR"
 MANIFEST="$LOG_DIR/manifest.txt"
 

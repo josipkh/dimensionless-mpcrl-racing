@@ -74,9 +74,10 @@ ARG GIT_DIRTY=unknown
 ENV GIT_COMMIT=${GIT_COMMIT} \
     GIT_DIRTY=${GIT_DIRTY}
 
-# Generated acados code and experiment output are written below /workspace.
-# docker-compose mounts ./output and ./results from the host over these paths.
-RUN mkdir -p /workspace/output /workspace/results
+# Generated acados code, experiment output, and reproducibility results are
+# written below /workspace/output. docker-compose mounts ./output from the host
+# over this path.
+RUN mkdir -p /workspace/output
 
 ENTRYPOINT ["/workspace/scripts/docker_entrypoint.sh"]
 CMD ["analysis"]

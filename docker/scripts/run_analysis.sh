@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run the test suite and the deterministic sensitivity analyses in isolated
-# working directories.  Results are written to /workspace/results by default.
+# working directories. Results are written to /workspace/output/docker/results
+# by default so they stay inside the git-ignored output directory.
 set -Eeuo pipefail
 
 ROOT="${REPO_ROOT:-/workspace}"
@@ -11,11 +12,12 @@ if [[ -n "${REPRO_RESULTS:-}" ]]; then
     mkdir -p "$RESULTS_ROOT"
 else
     STAMP="${REPRO_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
-    RESULTS_ROOT="$ROOT/results/$STAMP"
+    RESULTS_BASE="$ROOT/output/docker/results"
+    RESULTS_ROOT="$RESULTS_BASE/$STAMP"
     mkdir -p "$RESULTS_ROOT"
     # Windows bind mounts may not support symlinks; fall back to a text file.
-    if ! ln -sfn "$STAMP" "$ROOT/results/latest" 2>/dev/null; then
-        printf '%s\n' "$STAMP" > "$ROOT/results/latest.txt"
+    if ! ln -sfn "$STAMP" "$RESULTS_BASE/latest" 2>/dev/null; then
+        printf '%s\n' "$STAMP" > "$RESULTS_BASE/latest.txt"
     fi
 fi
 

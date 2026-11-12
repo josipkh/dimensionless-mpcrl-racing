@@ -31,8 +31,6 @@ services:
       RL_TRANSFER_DEFAULT_STEPS: "${RL_TRANSFER_DEFAULT_STEPS:-}"
       RL_TRANSFER_LARGE_STEPS: "${RL_TRANSFER_LARGE_STEPS:-}"
     volumes:
-      # Experiment logs, checkpoints, and figures written by the original
-      # scripts are persisted on the host.
+      # Experiment logs, checkpoints, figures, and reproducibility results are
+      # persisted on the host below the git-ignored ./output directory.
       - ../output:/workspace/output
-      # Isolated, timestamped results from the reproducibility runner.
-      - ../results:/workspace/results

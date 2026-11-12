@@ -69,18 +69,22 @@ further prompts.
 
 ## Outputs
 
-Analysis results are written to `results/<run-id>/`, with `results/latest`
-pointing at the most recent run. On filesystems without symbolic-link support,
-the run ID is written to `results/latest.txt` instead.
+Everything the Docker workflow writes lives below `output/`, which is already
+git-ignored.
+
+Analysis results are written to `output/docker/results/<run-id>/`, with
+`output/docker/results/latest` pointing at the most recent run. On filesystems
+without symbolic-link support, the run ID is written to
+`output/docker/results/latest.txt` instead.
 
 Each analysis has its own isolated working directory, log, and `output/`
 folder, so cached `.npy`/`.npz` files from earlier runs are never reused.
-`results/host-git-info.txt` records the host commit and submodule revisions,
-and `provenance.txt` records the container environment.
+`output/docker/results/host-git-info.txt` records the host commit and submodule
+revisions, and `provenance.txt` records the container environment.
 
-RL runs keep the original layout under `output/` and write one log per job to
-`output/logs/<run-id>/`. The bootstrap scripts use one run ID for both the
-analysis and RL outputs.
+RL runs keep the original experiment layout under `output/` and write one log
+per job to `output/docker/logs/<run-id>/`. The bootstrap scripts use one run ID
+for the analysis results and RL logs.
 
 ## Modes and configuration
 

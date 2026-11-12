@@ -200,7 +200,8 @@ export GIT_COMMIT GIT_DIRTY
 # The RL scripts parse this as %Y%m%d_%H%M%S, so keep underscores.
 export REPRO_RUN_ID="${REPRO_RUN_ID:-$(date -u +%Y%m%d_%H%M%S)}"
 
-mkdir -p "$ROOT/results"
+RESULTS_DIR="$ROOT/output/docker/results"
+mkdir -p "$RESULTS_DIR"
 {
     echo "# Host repository state captured by docker/reproduce.sh"
     echo "date_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -213,7 +214,7 @@ mkdir -p "$ROOT/results"
     echo
     echo "## submodules"
     git -C "$ROOT" submodule status --recursive 2>/dev/null || true
-} > "$ROOT/results/host-git-info.txt"
+} > "$RESULTS_DIR/host-git-info.txt"
 
 ENV_ARGS=()
 for var in ANALYSIS_STEPS REPRO_RUN_ID RL_SEEDS RL_JOBS RL_MAIN_STEPS RL_TRANSFER_DEFAULT_STEPS RL_TRANSFER_LARGE_STEPS; do
@@ -241,12 +242,13 @@ status=$?
 set -e
 
 if [[ "${DOCKER[0]:-}" == "sudo" ]]; then
-    as_root chown -R "$(id -u):$(id -g)" "$ROOT/results" "$ROOT/output" 2>/dev/null || true
+    as_root chown -R "$(id -u):$(id -g)" "$ROOT/output" 2>/dev/null || true
 fi
 
 if [[ $status -eq 0 ]]; then
     log "Reproduction complete."
-    log "Analysis results: $ROOT/results"
+    log "Analysis results: $ROOT/output/docker/results"
+    log "RL logs:          $ROOT/output/docker/logs"
     log "RL output:        $ROOT/output"
 else
     warn "Reproduction failed with exit code $status."

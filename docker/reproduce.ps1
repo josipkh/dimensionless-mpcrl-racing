@@ -270,7 +270,7 @@ if (-not $env:REPRO_RUN_ID) {
     $env:REPRO_RUN_ID = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 }
 
-$resultsDir = Join-Path $Root "results"
+$resultsDir = Join-Path $Root "output/docker/results"
 New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
 $hostInfo = @(
     "# Host repository state captured by docker/reproduce.ps1",
@@ -333,6 +333,7 @@ $status = $LASTEXITCODE
 if ($status -eq 0) {
     Write-Step "Reproduction complete."
     Write-Host "Analysis results: $resultsDir"
+    Write-Host "RL logs:          $(Join-Path $Root 'output/docker/logs')"
     Write-Host "RL output:        $(Join-Path $Root 'output')"
 } else {
     Write-Host "error: reproduction failed with exit code $status." -ForegroundColor Red

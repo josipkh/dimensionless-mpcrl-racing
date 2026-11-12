@@ -36,7 +36,8 @@ help:
 	@echo "  RL_MAIN_STEPS=100000  SAC-ZOP training steps per run"
 	@echo "  ANALYSIS_STEPS=...    Comma-separated subset of sensitivity analyses"
 	@echo
-	@echo "Results are written to ./results (analyses) and ./output (RL runs)."
+	@echo "Results are written to ./output/docker/results (analyses), logs to"
+	@echo "./output/docker/logs (RL runs), and RL experiment output to ./output."
 
 init:
 	git -C $(ROOT) submodule update --init --recursive
@@ -46,7 +47,7 @@ check-docker:
 	@docker info >/dev/null 2>&1 || { echo "The Docker daemon is not running. Start Docker and try again." >&2; exit 1; }
 
 metadata:
-	@mkdir -p $(ROOT)/results
+	@mkdir -p $(ROOT)/output/docker/results
 	@{ \
 		echo "# Host repository state captured by make"; \
 		echo "date_utc: $$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
@@ -59,7 +60,7 @@ metadata:
 		echo; \
 		echo "## submodules"; \
 		git -C $(ROOT) submodule status --recursive 2>/dev/null || true; \
-	} > $(ROOT)/results/host-git-info.txt
+	} > $(ROOT)/output/docker/results/host-git-info.txt
 
 build: check-docker init metadata
 	$(COMPOSE) build
