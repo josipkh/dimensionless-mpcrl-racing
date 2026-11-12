@@ -18,10 +18,10 @@ The implementation relies on [leap-c](https://leap-c.github.io/leap-c/) and the 
 
 ## Hyperparameter optimization
 
-The SAC-ZOP experiments can be tuned with Optuna.  A multi-fidelity search-space
-and pruning setup following the RL-HPO literature is in
-[`race_car/hpo/`](race_car/hpo/README.md).  Quick start from the repository
-root:
+The SAC-ZOP experiments can be tuned with Optuna.  A small search over five
+trainer hyperparameters, with an MPC reliability filter and a stability-aware
+objective, is in [`race_car/hpo/`](race_car/hpo/README.md).  Quick start from
+the repository root:
 
 ```bash
 python -m race_car.hpo.tune --size default --dimensionless \

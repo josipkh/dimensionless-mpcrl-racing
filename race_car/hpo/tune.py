@@ -12,7 +12,12 @@ Each trial runs in its own subprocess.  Validation scores come from
 ``val_log.csv`` and the MPC solve success rate from ``val_policy_log.csv``.  A
 trial is discarded as soon as a validation checkpoint reports a solve rate
 below ``--min-solve-rate`` (default 85%), so the study selects configurations
-that are both fast and reliable.  Median pruning stops clearly bad trials early.
+that are both fast and reliable.
+
+The objective rewards sustained performance rather than a lucky peak: it
+averages the last ``--tail-validations`` checkpoints and subtracts
+``--stability-penalty`` times their standard deviation.  Median pruning stops
+clearly bad or jumpy trials early.
 
 Examples:
     python -m race_car.hpo.tune --size default --dimensionless --n-trials 20 --n-jobs 4
@@ -26,6 +31,7 @@ import csv
 import os
 import shutil
 import signal
+import statistics
 import subprocess
 import sys
 import time
@@ -96,6 +102,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.85,
         help="Discard a trial whose MPC solve rate falls below this value at any validation.",
     )
+    parser.add_argument(
+        "--tail-validations",
+        type=int,
+        default=5,
+        help=(
+            "Number of final validation checkpoints used to score sustained "
+            "performance."
+        ),
+    )
+    parser.add_argument(
+        "--stability-penalty",
+        type=float,
+        default=0.5,
+        help=(
+            "Weight of the tail standard deviation in the objective "
+            "(tail_mean - penalty * tail_std). Use 0 for pure tail mean."
+        ),
+    )
 
     parser.add_argument("--n-trials", type=int, default=20)
     parser.add_argument(
@@ -138,6 +162,38 @@ def sample_params(trial: optuna.Trial) -> dict[str, float]:
     return {
         name: trial.suggest_float(name, low, high, log=True)
         for name, (low, high) in SEARCH_RANGES.items()
+    }
+
+
+def stability_metrics(
+    scores: Sequence[tuple[int, float]],
+    tail_size: int,
+    penalty: float,
+) -> dict[str, float]:
+    """Summarise the final part of a validation curve.
+
+    Scoring only the best checkpoint rewards lucky spikes.  Instead the
+    objective averages the last ``tail_size`` validations and subtracts
+    ``penalty`` times their standard deviation, so a configuration must be both
+    good and steady at the end of training to rank well.
+
+    Args:
+        scores: ``(step, score)`` pairs in chronological order.
+        tail_size: Number of final checkpoints to average.
+        penalty: Weight of the tail standard deviation.
+    """
+    values = [score for _, score in scores]
+    if not values:
+        raise ValueError("At least one validation score is required.")
+    tail = values[-tail_size:] if tail_size > 0 else values
+    tail_mean = statistics.fmean(tail)
+    tail_std = statistics.pstdev(tail) if len(tail) > 1 else 0.0
+    return {
+        "best_score": max(values),
+        "final_score": values[-1],
+        "tail_mean": tail_mean,
+        "tail_std": tail_std,
+        "stable_score": tail_mean - penalty * tail_std,
     }
 
 
@@ -297,6 +353,10 @@ def _write_trials_csv(study: optuna.Study, path: Path) -> None:
         "seed",
         "n_validations",
         "min_solve_rate",
+        "best_score",
+        "final_score",
+        "tail_mean",
+        "tail_std",
         "discarded_reason",
         *param_names,
     ]
@@ -312,6 +372,10 @@ def _write_trials_csv(study: optuna.Study, path: Path) -> None:
                 "seed": trial.user_attrs.get("seed"),
                 "n_validations": trial.user_attrs.get("n_validations"),
                 "min_solve_rate": trial.user_attrs.get("min_solve_rate"),
+                "best_score": trial.user_attrs.get("best_score"),
+                "final_score": trial.user_attrs.get("final_score"),
+                "tail_mean": trial.user_attrs.get("tail_mean"),
+                "tail_std": trial.user_attrs.get("tail_std"),
                 "discarded_reason": trial.user_attrs.get("discarded_reason"),
             }
             row.update({name: trial.params.get(name) for name in param_names})
@@ -326,11 +390,13 @@ def _print_summary(study: optuna.Study) -> None:
         print("No completed trials yet.")
         return
 
-    print(f"\nBest trial #{best.number}: value={best.value:.4f}")
+    print(f"\nBest trial #{best.number}: stable_score={best.value:.4f}")
     for name, value in best.params.items():
         print(f"  {name}: {value}")
-    if best.user_attrs.get("min_solve_rate") is not None:
-        print(f"  min_solve_rate: {best.user_attrs['min_solve_rate']:.3f}")
+    for key in ("tail_mean", "tail_std", "best_score", "final_score", "min_solve_rate"):
+        value = best.user_attrs.get(key)
+        if value is not None:
+            print(f"  {key}: {value:.3f}")
 
     try:
         importances = optuna.importance.get_param_importances(study)
@@ -342,7 +408,12 @@ def _print_summary(study: optuna.Study) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.tail_validations < 1:
+        parser.error("--tail-validations must be at least 1")
+    if args.stability_penalty < 0:
+        parser.error("--stability-penalty must be non-negative")
 
     formulation = "dimensionless" if args.dimensionless else "dimensional"
     study_name = args.study_name or (
@@ -362,7 +433,10 @@ def main(argv: list[str] | None = None) -> int:
         "arguments": vars(args),
         "search_ranges": SEARCH_RANGES,
         "fixed_overrides": FIXED_OVERRIDES,
-        "objective": "best validation score, discarding trials below --min-solve-rate",
+        "objective": (
+            "maximize tail_mean - stability_penalty * tail_std over the last "
+            "tail_validations checkpoints, after discarding unreliable trials"
+        ),
     }
     _write_yaml(settings, study_dir / "run_settings.yaml")
 
@@ -393,6 +467,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Budget    : {args.n_trials} trials, {args.n_jobs} in parallel, "
           f"{args.train_steps} steps each")
     print(f"Reliability: discard if MPC solve rate < {args.min_solve_rate:.0%}")
+    print(f"Objective : last {args.tail_validations} validations, "
+          f"penalty {args.stability_penalty:g} x std")
 
     trial_timeout_s = args.trial_timeout_min * 60 if args.trial_timeout_min else None
 
@@ -433,8 +509,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.dimensionless:
             command.append("--dimensionless")
 
+        history: list[tuple[int, float]] = []
+
         def on_validation(step: int, score: float) -> None:
-            trial.report(score, step=step)
+            history.append((step, score))
+            stable = stability_metrics(
+                history, args.tail_validations, args.stability_penalty
+            )
+            trial.report(stable["stable_score"], step=step)
             if trial.should_prune():
                 raise optuna.TrialPruned(f"Pruned at step {step}.")
 
@@ -456,7 +538,12 @@ def main(argv: list[str] | None = None) -> int:
 
         trial.set_user_attr("n_validations", len(scores))
         trial.set_user_attr("min_solve_rate", min(rates.values()) if rates else None)
-        return max(score for _, score in scores)
+        metrics = stability_metrics(
+            scores, args.tail_validations, args.stability_penalty
+        )
+        for key, value in metrics.items():
+            trial.set_user_attr(key, value)
+        return metrics["stable_score"]
 
     study.optimize(
         objective,
@@ -512,6 +599,14 @@ def _self_test() -> None:
     assert set(params) == set(SEARCH_RANGES)
     assert all(low <= value <= high for name, (low, high) in SEARCH_RANGES.items()
                for value in [params[name]])
+
+    steady = stability_metrics([(0, -100), (5, -75), (10, -75), (15, -75)], 3, 0.5)
+    jumpy = stability_metrics([(0, -100), (5, -50), (10, -100), (15, -50)], 3, 0.5)
+    assert steady["tail_mean"] == -75
+    assert steady["tail_std"] == 0
+    assert steady["stable_score"] == -75
+    assert jumpy["best_score"] == -50 and jumpy["final_score"] == -50
+    assert jumpy["stable_score"] < steady["stable_score"]
 
     tmp = Path(mkdtemp())
     ok_dir = tmp / "ok"
