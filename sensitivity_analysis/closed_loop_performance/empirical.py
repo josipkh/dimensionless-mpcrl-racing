@@ -172,10 +172,10 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     from race_car.acados_ocp import export_ocp
-    from race_car.utils.config import get_default_car_params
+    from race_car.utils.config import get_small_car_params
     from race_car.utils.scaling import get_pi_groups
 
-    car_params = get_default_car_params()
+    car_params = get_small_car_params()
     pi_nominal = get_pi_groups(car_params)
 
     ### finite differences gradient check

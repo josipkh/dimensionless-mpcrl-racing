@@ -471,22 +471,22 @@ def compare_formulation(car_params: CarParams, solver: str):
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.utils.config import get_small_car_params, get_large_car_params
 
     # compare_formulation(car_params, solver="ipopt")
-    x_default, u_default = test_closed_loop(car_params=get_default_car_params(), dimensionless=True)
+    x_small, u_small = test_closed_loop(car_params=get_small_car_params(), dimensionless=True)
     x_large, u_large = test_closed_loop(car_params=get_large_car_params(), dimensionless=True)
 
-    Mx_default, Mu_default, _ = get_transformation_matrices(car_params=get_default_car_params())
+    Mx_small, Mu_small, _ = get_transformation_matrices(car_params=get_small_car_params())
     Mx_large, Mu_large, _ = get_transformation_matrices(car_params=get_large_car_params())
-    x_default_dimensionless = x_default @ np.linalg.inv(Mx_default)
-    u_default_dimensionless = u_default @ np.linalg.inv(Mu_default)
+    x_small_dimensionless = x_small @ np.linalg.inv(Mx_small)
+    u_small_dimensionless = u_small @ np.linalg.inv(Mu_small)
     x_large_dimensionless = x_large @ np.linalg.inv(Mx_large)
     u_large_dimensionless = u_large @ np.linalg.inv(Mu_large)
 
-    min_rows = min(x_default_dimensionless.shape[0], x_large_dimensionless.shape[0])
-    assert np.allclose(x_default_dimensionless[:min_rows, :], x_large_dimensionless[:min_rows, :])
-    assert np.allclose(u_default_dimensionless[:min_rows, :], u_large_dimensionless[:min_rows, :])
+    min_rows = min(x_small_dimensionless.shape[0], x_large_dimensionless.shape[0])
+    assert np.allclose(x_small_dimensionless[:min_rows, :], x_large_dimensionless[:min_rows, :])
+    assert np.allclose(u_small_dimensionless[:min_rows, :], u_large_dimensionless[:min_rows, :])
     print("Results match")
 
     if plt.get_fignums():

@@ -10,8 +10,8 @@ SCRIPT="PYTHONPATH=$(pwd) python race_car/scripts/run_sac_zop.py"
 WATCHER_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wait_and_average.sh"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 declare -A RUNS=(
-    ["default_dimensional"]="--size default"
-    ["default_dimensionless"]="--size default --dimensionless"
+    ["small_dimensional"]="--size small"
+    ["small_dimensionless"]="--size small --dimensionless"
     ["large_dimensional"]="--size large"
     ["large_dimensionless"]="--size large --dimensionless"
 )

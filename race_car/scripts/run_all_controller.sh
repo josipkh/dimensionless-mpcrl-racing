@@ -5,8 +5,8 @@
 SCRIPT="PYTHONPATH=$(pwd) python race_car/scripts/run_controller.py"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 declare -A RUNS=(
-    ["default_dimensional"]="--size default"
-    ["default_dimensionless"]="--size default --dimensionless"
+    ["small_dimensional"]="--size small"
+    ["small_dimensionless"]="--size small --dimensionless"
     ["large_dimensional"]="--size large"
     ["large_dimensionless"]="--size large --dimensionless"
 )

@@ -41,8 +41,8 @@ manifest, plus a root manifest listing both directions:
 ```
 output/<date>/<time>_sac_zop_transfer/
 ├── transfer.json
-├── default_to_large/{dimensional,dimensionless}/seed_0..4
-└── large_to_default/{dimensional,dimensionless}/seed_0..4
+├── small_to_large/{dimensional,dimensionless}/seed_0..4
+└── large_to_small/{dimensional,dimensionless}/seed_0..4
 ```
 
 ```bash
@@ -50,10 +50,10 @@ output/<date>/<time>_sac_zop_transfer/
 race_car/scripts/run_all_sac_zop_transfer.sh
 
 # small -> large only
-TRANSFER_DIRECTION=default_to_large race_car/scripts/run_all_sac_zop_transfer.sh
+TRANSFER_DIRECTION=small_to_large race_car/scripts/run_all_sac_zop_transfer.sh
 
 # large -> small only
-TRANSFER_DIRECTION=large_to_default race_car/scripts/run_all_sac_zop_transfer.sh
+TRANSFER_DIRECTION=large_to_small race_car/scripts/run_all_sac_zop_transfer.sh
 ```
 
 Explicit single-direction batches keep the old flat layout with a direction-tagged
@@ -65,18 +65,18 @@ The source car is pretrained for 50k steps and the target car is fine-tuned for
 
 ```bash
 python race_car/scripts/run_sac_zop_transfer.py \
-    --size default --direction default_to_large --phase source \
+    --size small --direction small_to_large --phase source \
     --dimensionless --seed 0 --train_steps 50000 --dtype float32
 ```
 
-`--direction` selects the car pair (`default_to_large` or `large_to_default`)
+`--direction` selects the car pair (`small_to_large` or `large_to_small`)
 and `--phase` says which half of the chain is running (`source` or `target`).
 The script checks that `--size` agrees with both; a mismatch is rejected.
 Note that a single manual run does not write `transfer.json` — the batch
 launcher does that once per experiment. The launcher also passes `--run_root`
 to both phases of a chain so they share one folder, including the per-direction
-subfolder of the default batch; the example above falls back to the
-timestamp-based path when `--run_root` is omitted.
+subfolder of the default both-direction batch; the example above falls back to
+the timestamp-based path when `--run_root` is omitted.
 
 Average the per-seed TensorBoard logs afterwards with
 `race_car/scripts/average_results.sh <results-folder>`. A batch root can be

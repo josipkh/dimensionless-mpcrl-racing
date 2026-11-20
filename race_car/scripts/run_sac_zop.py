@@ -17,7 +17,7 @@ import race_car
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 from race_car.utils.log_utils import tee_logging
-from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
+from race_car.utils.config import get_small_car_params_tracking, get_large_car_params_tracking
 
 
 def create_cfg(seed: int) -> SacZopTrainerConfig:
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     use_pretrained = False
 
     parser = ArgumentParser()
-    parser.add_argument("--size", type=str, default="default")  # "default" or "large"
+    parser.add_argument("--size", type=str, default="small")  # "small" or "large"
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timestamp", type=str, default=None)
@@ -98,14 +98,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # select the car parameters
-    if args.size == "default":
-        from race_car.utils.config import get_default_car_params_tracking
-        car_params = get_default_car_params_tracking()
+    if args.size == "small":
+        from race_car.utils.config import get_small_car_params_tracking
+        car_params = get_small_car_params_tracking()
     elif args.size == "large":
         from race_car.utils.config import get_large_car_params_tracking
         car_params = get_large_car_params_tracking()
     else:
-        raise ValueError("Please specify the car size with --size (e.g. --size default)")
+        raise ValueError("Please specify the car size with --size (e.g. --size small)")
 
     # other settings
     tags = ["sac_zop", args.size, "dimensionless" if args.dimensionless else "dimensional"]

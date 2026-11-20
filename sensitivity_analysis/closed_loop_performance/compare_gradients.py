@@ -121,6 +121,6 @@ def compare_gradients(car_params: CarParams, delta: float = 0.05, n_points: int 
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params
-    car_params = get_default_car_params()
+    from race_car.utils.config import get_small_car_params
+    car_params = get_small_car_params()
     compare_gradients(car_params, delta=0.05, n_points=7)

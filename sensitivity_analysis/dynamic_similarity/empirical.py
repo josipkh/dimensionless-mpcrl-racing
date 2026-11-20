@@ -9,7 +9,7 @@ from matplotlib.ticker import PercentFormatter
 
 from acados_template import AcadosModel
 
-from race_car.utils.config import SymbolicCarParams, get_default_car_params
+from race_car.utils.config import SymbolicCarParams, get_small_car_params
 from race_car.utils.scaling import get_pi_groups, get_transformation_matrices
 from race_car.utils.track import get_track
 from race_car.model import car_model_sim
@@ -202,23 +202,23 @@ def test_with_finite_differences(
 if __name__ == "__main__":
     # model and settings
     model = car_model_sim(car_params=SymbolicCarParams(), dimensionless=True)    
-    default_car_params = get_default_car_params()
-    pi_nominal = get_pi_groups(default_car_params)
+    small_car_params = get_small_car_params()
+    pi_nominal = get_pi_groups(small_car_params)
     perturbation_indices = [1, 2]  # NOTE: 1-based
 
-    Mx, _, mt = get_transformation_matrices(default_car_params)
-    dt = default_car_params.dt.item() / mt.item()
+    Mx, _, mt = get_transformation_matrices(small_car_params)
+    dt = small_car_params.dt.item() / mt.item()
     
     # dimensionless state limits (s, n, alpha, v)
     x_max_dimensional = np.array([
-        get_track(default_car_params)[0][-1],
-        default_car_params.n_max.item(),
+        get_track(small_car_params)[0][-1],
+        small_car_params.n_max.item(),
         np.pi,
-        default_car_params.v_max.item(),
+        small_car_params.v_max.item(),
     ])
     x_min_dimensional = np.array([
         0.0,
-        default_car_params.n_min.item(),
+        small_car_params.n_min.item(),
         -np.pi,
         0.0,
     ])
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     x_min = Mx_inv @ x_min_dimensional
     
     # dimensionless input limits (D, delta; no scaling needed)
-    u_max = np.array([default_car_params.D_max, default_car_params.delta_max])
-    u_min = np.array([default_car_params.D_min, default_car_params.delta_min])
+    u_max = np.array([small_car_params.D_max, small_car_params.delta_max])
+    u_min = np.array([small_car_params.D_min, small_car_params.delta_min])
 
     test_with_finite_differences(model, dt, x_max, x_min, u_max, u_min, pi_nominal, perturbation_indices)

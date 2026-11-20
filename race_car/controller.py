@@ -10,7 +10,7 @@ from leap_c.ocp.acados.torch import AcadosDiffMpcCtx, AcadosDiffMpcTorch
 
 from race_car.acados_ocp import export_ocp
 from race_car.model import integrate_erk4
-from race_car.utils.config import CarParams, create_acados_params, get_default_car_params_tracking
+from race_car.utils.config import CarParams, create_acados_params, get_small_car_params_tracking
 
 
 class RaceCarController(AcadosPlanner):
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     from race_car.utils.scaling import compare_casadi_expressions
 
     # compare the dimensionless controllers
-    a = RaceCarController(car_params=get_default_car_params_tracking(), dimensionless=True)
+    a = RaceCarController(car_params=get_small_car_params_tracking(), dimensionless=True)
     b = RaceCarController(car_params=get_large_car_params_tracking(), dimensionless=True)
     c = a.diff_mpc.diff_mpc_fun.ocp.model
     d = b.diff_mpc.diff_mpc_fun.ocp.model

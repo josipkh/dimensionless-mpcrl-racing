@@ -3,16 +3,16 @@
 # Each seed chain runs in a single tmux session.
 #
 # The transfer direction is selected with TRANSFER_DIRECTION (default: both):
-#   both              run both directions in one batch folder (default)
-#   default_to_large  small -> large  (pretrain the default car, fine-tune the large car)
-#   large_to_default  large -> small  (pretrain the large car, fine-tune the default car)
+#   both            run both directions in one batch folder (default)
+#   small_to_large  small -> large  (pretrain the small car, fine-tune the large car)
+#   large_to_small  large -> small  (pretrain the large car, fine-tune the small car)
 #
 # Both runs of a chain share the same output directory, so the target run continues
 # from the source checkpoint. The source car is pretrained briefly, the target car
 # is fine-tuned longer. The direction is recorded in the output folder name and in
 # a transfer.json manifest next to the results, so no manual bookkeeping is needed.
-# The default batch folder is direction-neutral and contains one subfolder per
-# direction, plus a manifest describing both of them.
+# The default both-direction batch folder is direction-neutral and contains one
+# subfolder per direction, plus a manifest describing both of them.
 #
 # When every session of the batch has finished, a watcher session averages the
 # per-seed TensorBoard logs (race_car/scripts/average_results.sh). Set
@@ -20,8 +20,8 @@
 #
 # Usage:
 #   ./race_car/scripts/run_all_sac_zop_transfer.sh                              # both directions
-#   TRANSFER_DIRECTION=default_to_large ./race_car/scripts/run_all_sac_zop_transfer.sh
-#   TRANSFER_DIRECTION=large_to_default ./race_car/scripts/run_all_sac_zop_transfer.sh
+#   TRANSFER_DIRECTION=small_to_large ./race_car/scripts/run_all_sac_zop_transfer.sh
+#   TRANSFER_DIRECTION=large_to_small ./race_car/scripts/run_all_sac_zop_transfer.sh
 #   AUTO_AVERAGE=0 ./race_car/scripts/run_all_sac_zop_transfer.sh
 
 TRANSFER_DIRECTION="${TRANSFER_DIRECTION:-both}"
@@ -40,31 +40,31 @@ SOURCE_STEPS=50000
 TARGET_STEPS=100000
 
 declare -A SOURCE_CAR=(
-    ["default_to_large"]="default"
-    ["large_to_default"]="large"
+    ["small_to_large"]="small"
+    ["large_to_small"]="large"
 )
 declare -A TARGET_CAR=(
-    ["default_to_large"]="large"
-    ["large_to_default"]="default"
+    ["small_to_large"]="large"
+    ["large_to_small"]="small"
 )
 
 case "$TRANSFER_DIRECTION" in
-    default_to_large|large_to_default)
+    small_to_large|large_to_small)
         DIRECTIONS=("$TRANSFER_DIRECTION")
         BATCH_SUFFIX="sac_zop_transfer_${TRANSFER_DIRECTION}"
         ;;
     both)
-        DIRECTIONS=("default_to_large" "large_to_default")
+        DIRECTIONS=("small_to_large" "large_to_small")
         BATCH_SUFFIX="sac_zop_transfer"
         ;;
     *)
-        echo "Unknown TRANSFER_DIRECTION '$TRANSFER_DIRECTION' (use 'default_to_large', 'large_to_default' or 'both')"
+        echo "Unknown TRANSFER_DIRECTION '$TRANSFER_DIRECTION' (use 'small_to_large', 'large_to_small' or 'both')"
         exit 1
         ;;
 esac
 
 # One folder per batch. Explicit single-direction runs keep the old flat layout;
-# the default batch uses a direction-neutral root with one subfolder per direction.
+# the default both-direction batch uses a direction-neutral root with one subfolder per direction.
 BATCH_ROOT="output/${TIMESTAMP:0:4}_${TIMESTAMP:4:2}_${TIMESTAMP:6:2}/${TIMESTAMP:9:2}_${TIMESTAMP:11:2}_${TIMESTAMP:13:2}_${BATCH_SUFFIX}"
 mkdir -p "$BATCH_ROOT"
 
@@ -95,7 +95,7 @@ common = {
 def entry(direction, source, target):
     return {
         "direction": direction,
-        "label": "small -> large" if direction == "default_to_large" else "large -> small",
+        "label": "small -> large" if direction == "small_to_large" else "large -> small",
         "source": source,
         "target": target,
         "source_steps": int(source_steps),

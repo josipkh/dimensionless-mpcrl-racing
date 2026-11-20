@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 
 from race_car.model import export_acados_integrator
-from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.config import CarParams, get_small_car_params
 from race_car.utils.scaling import get_transformation_matrices
 from race_car.utils.track import get_track
 
@@ -242,7 +242,7 @@ class RaceCarEnv(gym.Env):
         alpha = state_log[:, 2]
         v = state_log[:, 3]
 
-        distance = 0.12 * self.car_params.l.item() / get_default_car_params().l.item()
+        distance = 0.12 * self.car_params.l.item() / get_small_car_params().l.item()
         [x, y, _, _] = frenet2global(s=s, n=n, alpha=alpha, v=v, car_params=self.car_params)
         [_, Xref, Yref, Psiref, _] = get_track(self.car_params)
 
@@ -309,8 +309,8 @@ if __name__ == "__main__":
     from race_car.utils.config import get_large_car_params
     dimensionless = True
 
-    # create envs for the default and similar parameters
-    params_ref = get_default_car_params()
+    # create envs for the small and similar parameters
+    params_ref = get_small_car_params()
     env_ref = RaceCarEnv(
         car_params=params_ref,
         dimensionless=dimensionless,

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.config import CarParams, get_small_car_params
 
 
 def get_track(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -27,9 +27,9 @@ def get_track(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray
 
     # the track is defined for the small car
     # we need to scale it with the given car size
-    default_car_length = get_default_car_params().l.item()
+    small_car_length = get_small_car_params().l.item()
     current_car_length = car_params.l[0]
-    scaling_factor = current_car_length / default_car_length
+    scaling_factor = current_car_length / small_car_length
     sref *= scaling_factor
     xref *= scaling_factor
     yref *= scaling_factor
@@ -139,7 +139,7 @@ def dist2D(x1, x2, y1, y2):
 
 
 if __name__ == "__main__":
-    car_params = get_default_car_params()
+    car_params = get_small_car_params()
     s = 4.5
     n = 0.2
     alpha = 0.1

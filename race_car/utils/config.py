@@ -73,7 +73,7 @@ class SymbolicCarParams:
     cr3: ca.SX = ca.SX.sym("cr3")
 
 
-def get_default_car_params() -> CarParams:
+def get_small_car_params() -> CarParams:
     """Parameter values based on the original example (notes when modified)."""
     return CarParams(
         m=np.array([0.043]),
@@ -163,20 +163,20 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     """Create a list of leap-c parameters (learnable cost weights and non-learnable progress reference)."""
     from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
     # TODO: remove fixed parameters
-    cost_min_default = 1e-5  # lower limit on the individual weights (for the default car)
-    cost_max_default = 1e+4  # upper limit on the individual weights (for the default car)
+    cost_min_small = 1e-5  # lower limit on the individual weights (for the small car)
+    cost_max_small = 1e+4  # upper limit on the individual weights (for the small car)
     nx = 4  # original (non-extended) state dimension
 
-    qx_diag_min_default = cost_min_default * np.ones_like(car_params.q_diag_log[:nx])
-    qx_diag_max_default = cost_max_default * np.ones_like(car_params.q_diag_log[:nx])
+    qx_diag_min_small = cost_min_small * np.ones_like(car_params.q_diag_log[:nx])
+    qx_diag_max_small = cost_max_small * np.ones_like(car_params.q_diag_log[:nx])
 
     # scale the weight bounds (w.r.t. car size) for correct sampling
-    default_car_params = get_default_car_params()
-    Mx_default = get_transformation_matrices(default_car_params)[0][:nx, :nx]
+    small_car_params = get_small_car_params()
+    Mx_small = get_transformation_matrices(small_car_params)[0][:nx, :nx]
     Mx = get_transformation_matrices(car_params)[0][:nx, :nx]
-    scaling_factor = (Mx_default.diagonal() ** 2) / (Mx.diagonal() ** 2)
-    qx_diag_min = qx_diag_min_default * scaling_factor
-    qx_diag_max = qx_diag_max_default * scaling_factor
+    scaling_factor = (Mx_small.diagonal() ** 2) / (Mx.diagonal() ** 2)
+    qx_diag_min = qx_diag_min_small * scaling_factor
+    qx_diag_max = qx_diag_max_small * scaling_factor
 
     if dimensionless:
         # learn dimensionless cost weights
@@ -252,9 +252,9 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
     return tuple(params)
 
 
-def get_default_car_params_tracking() -> CarParams:
+def get_small_car_params_tracking() -> CarParams:
     """Similar to the original example, but with more emphasis on centerline tracking."""
-    car_params = get_default_car_params()
+    car_params = get_small_car_params()
     car_params.q_diag_log = np.log10([5, 1e3, 1e3, 1, 1e-3, 5e-3])
     car_params.qe_diag_log = car_params.q_diag_log
     return car_params
@@ -264,7 +264,7 @@ def get_large_car_params() -> CarParams:
     """Returns the parameters of a specific larger car."""
     from race_car.utils.scaling import get_similar_car_params
     return get_similar_car_params(
-        reference_params=get_default_car_params(),
+        reference_params=get_small_car_params(),
         new_length=4.0,
         new_mass=1500.0,
         new_cr3=0.4,  # chosen approximately, top speed of small car is 2.5 m/s
@@ -274,9 +274,9 @@ def get_large_car_params() -> CarParams:
 def get_large_car_params_tracking() -> CarParams:
     """Similar to the large car params, but with more emphasis on centerline tracking."""
     from race_car.utils.scaling import get_similar_car_params
-    default_car_params = get_default_car_params_tracking()
+    small_car_params = get_small_car_params_tracking()
     large_car_params = get_similar_car_params(
-        reference_params=default_car_params,
+        reference_params=small_car_params,
         new_length=4.0,
         new_mass=1500.0,
         new_cr3=0.4,  # chosen approximately, top speed of small car is 2.5 m/s
@@ -286,14 +286,14 @@ def get_large_car_params_tracking() -> CarParams:
 
 if __name__ == "__main__":
     from pprint import pprint
-    print("Default car parameters:")
-    car_params = get_default_car_params()
+    print("Small car parameters:")
+    car_params = get_small_car_params()
     pprint(car_params)
     print("-"*50)
 
     # dimensionless formulations should have the same default values and limits for the parameters
     for (param_a, param_b) in zip(
-        create_acados_params(car_params=get_default_car_params(), dimensionless=True),
+        create_acados_params(car_params=get_small_car_params(), dimensionless=True),
         create_acados_params(car_params=get_large_car_params(), dimensionless=True)
     ):
         assert np.allclose(param_a.default, param_b.default), f"Default values for parameter '{param_a.name}' do not match: {param_a.default} vs {param_b.default}"
@@ -302,7 +302,7 @@ if __name__ == "__main__":
             assert np.allclose(param_a.space.low, param_b.space.low)
 
     for (param_a, param_b) in zip(
-        create_acados_params(car_params=get_default_car_params_tracking(), dimensionless=True),
+        create_acados_params(car_params=get_small_car_params_tracking(), dimensionless=True),
         create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=True)
     ):
         assert np.allclose(param_a.default, param_b.default), f"Default values for parameter '{param_a.name}' do not match: {param_a.default} vs {param_b.default}"
@@ -310,18 +310,18 @@ if __name__ == "__main__":
             assert np.allclose(param_a.space.high, param_b.space.high)
             assert np.allclose(param_a.space.low, param_b.space.low)
 
-    create_acados_params(car_params=get_default_car_params(), dimensionless=False),
+    create_acados_params(car_params=get_small_car_params(), dimensionless=False),
     create_acados_params(car_params=get_large_car_params(), dimensionless=False)
-    create_acados_params(car_params=get_default_car_params_tracking(), dimensionless=False),
+    create_acados_params(car_params=get_small_car_params_tracking(), dimensionless=False),
     create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=False)
 
     SymbolicCarParams()
 
     # check the parameter ranges for the two formulations
     for dimensionless in [True, False]:
-        params_1 = create_acados_params(car_params=get_default_car_params(), dimensionless=dimensionless)
+        params_1 = create_acados_params(car_params=get_small_car_params(), dimensionless=dimensionless)
         params_2 = create_acados_params(car_params=get_large_car_params(), dimensionless=dimensionless)
-        params_3 = create_acados_params(car_params=get_default_car_params_tracking(), dimensionless=dimensionless)
+        params_3 = create_acados_params(car_params=get_small_car_params_tracking(), dimensionless=dimensionless)
         params_4 = create_acados_params(car_params=get_large_car_params_tracking(), dimensionless=dimensionless)
 
         all_params = [params_1, params_2, params_3, params_4]

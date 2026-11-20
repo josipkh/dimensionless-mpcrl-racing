@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 import casadi as ca
 
-from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.config import CarParams, get_small_car_params
 
 
 def get_cost_matrices(car_params: CarParams) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -167,7 +167,7 @@ if __name__ == "__main__":
     from race_car.utils.track import get_track
     from race_car.utils.config import get_large_car_params
     
-    car_params_ref = get_default_car_params()
+    car_params_ref = get_small_car_params()
     car_params_sim = get_large_car_params()
     
     # check dynamic similarity

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
 
-from race_car.utils.config import CarParams, get_default_car_params
+from race_car.utils.config import CarParams, get_small_car_params
 from race_car.utils.track import frenet2global, get_track, global2frenet
 
 
@@ -42,8 +42,8 @@ def plot_results_track(
     alpha = state_log[:, 2]
     v = state_log[:, 3]
 
-    default_distance = 0.12  # [m] half of track width for the small car
-    distance = default_distance * car_params.l.item() / get_default_car_params().l.item()
+    small_distance = 0.12  # [m] half of track width for the small car
+    distance = small_distance * car_params.l.item() / get_small_car_params().l.item()
 
     # transform projection to global coordinates
     [x, y, _, _] = frenet2global(s=s, n=n, alpha=alpha, v=v, car_params=car_params)
@@ -229,7 +229,7 @@ def calculate_acc(x: np.ndarray, car_params: CarParams) -> np.ndarray:
 if __name__ == "__main__":
     from race_car.utils.config import get_large_car_params
 
-    car_params = get_default_car_params()
+    car_params = get_small_car_params()
     car_params_sim = get_large_car_params()
 
     try:

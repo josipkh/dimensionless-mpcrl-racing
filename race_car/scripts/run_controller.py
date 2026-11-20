@@ -1,4 +1,4 @@
-"""Main script to run controllers with default parameters."""
+"""Main script to run controllers with small-car parameters."""
 
 from pathlib import Path
 from typing import Any, Generator
@@ -91,20 +91,20 @@ if __name__ == "__main__":
     keep_output = False  # only relevant if running this file directly
 
     parser = ArgumentParser()
-    parser.add_argument("--size", type=str, default="default")  # "default" or "large"
+    parser.add_argument("--size", type=str, default="small")  # "small" or "large"
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--timestamp", type=str, default=None)
     args = parser.parse_args()
 
     # select the car parameters
-    if args.size == "default":
-        from race_car.utils.config import get_default_car_params_tracking
-        car_params = get_default_car_params_tracking()
+    if args.size == "small":
+        from race_car.utils.config import get_small_car_params_tracking
+        car_params = get_small_car_params_tracking()
     elif args.size == "large":
         from race_car.utils.config import get_large_car_params_tracking
         car_params = get_large_car_params_tracking()
     else:
-        raise ValueError("Please specify the car size with --size (e.g. --size default)")
+        raise ValueError("Please specify the car size with --size (e.g. --size small)")
     
     tags = ["baseline", args.size, "dimensionless" if args.dimensionless else "dimensional"]
     if args.timestamp:

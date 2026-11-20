@@ -7,7 +7,7 @@ import numpy as np
 import sympy as sp
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 
-from race_car.utils.config import CarParams, SymbolicCarParams, get_default_car_params
+from race_car.utils.config import CarParams, SymbolicCarParams, get_small_car_params
 from race_car.utils.scaling import get_transformation_matrices, get_pi_groups
 from race_car.utils.track import get_track
 from race_car.utils.symbolics import casadi2sympy, sympy2casadi
@@ -285,8 +285,8 @@ def replace_pi_groups(model: AcadosModel, car_params: CarParams | None = None) -
         )
 
     # embed a dimensionless interpolant for the curvature
-    [sref, _, _, _, kapparef] = get_track(car_params=get_default_car_params())
-    l = get_default_car_params().l[0]
+    [sref, _, _, _, kapparef] = get_track(car_params=get_small_car_params())
+    l = get_small_car_params().l[0]
     sref /= l
     kapparef *= l
 
@@ -372,7 +372,7 @@ def integrate_erk4(
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.utils.config import get_small_car_params, get_large_car_params
     from race_car.utils.scaling import get_transformation_matrices
 
     # 0: small dimensional vs. dimensionless
@@ -382,12 +382,12 @@ if __name__ == "__main__":
 
     match test_type:
         case 0:
-            integrator_ref = export_acados_integrator(car_params=get_default_car_params(), dimensionless=False)
-            integrator_sim = export_acados_integrator(car_params=get_default_car_params(), dimensionless=True)
+            integrator_ref = export_acados_integrator(car_params=get_small_car_params(), dimensionless=False)
+            integrator_sim = export_acados_integrator(car_params=get_small_car_params(), dimensionless=True)
             labels = ["dimensional", "dimensionless"]
             # formulations differ, define scaling matrices
             Mx_ref = Mx_inv_ref = np.eye(4)
-            Mx_sim = get_transformation_matrices(get_default_car_params())[0][:4,:4]
+            Mx_sim = get_transformation_matrices(get_small_car_params())[0][:4,:4]
             Mx_inv_sim = np.linalg.inv(Mx_sim)
         case 1:
             integrator_ref = export_acados_integrator(car_params=get_large_car_params(), dimensionless=False)
@@ -398,7 +398,7 @@ if __name__ == "__main__":
             Mx_sim = get_transformation_matrices(get_large_car_params())[0][:4,:4]
             Mx_inv_sim = np.linalg.inv(Mx_sim)
         case 2:
-            integrator_ref = export_acados_integrator(car_params=get_default_car_params(), dimensionless=True)
+            integrator_ref = export_acados_integrator(car_params=get_small_car_params(), dimensionless=True)
             integrator_sim = export_acados_integrator(car_params=get_large_car_params(), dimensionless=True)
             labels = ["small", "large"]
             # formulations are same, no transformation needed

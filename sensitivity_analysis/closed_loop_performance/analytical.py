@@ -162,11 +162,11 @@ def calculate_closed_loop_cost_sensitivity(car_params: CarParams, log: dict) -> 
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.utils.config import get_small_car_params, get_large_car_params
     from race_car.utils.scaling import get_transformation_matrices
     from race_car.utils.plotting import plot_results_track, plot_results_classic
 
-    car_params = get_default_car_params()
+    car_params = get_small_car_params()
     plot_track = False
 
     log, closed_loop_cost = simulate_closed_loop(car_params)

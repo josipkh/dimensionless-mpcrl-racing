@@ -15,12 +15,12 @@ import race_car
 from race_car.env import RaceCarEnv
 from race_car.controller import RaceCarController
 from race_car.utils.log_utils import tee_logging
-from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
+from race_car.utils.config import get_small_car_params_tracking, get_large_car_params_tracking
 
 
 DIRECTIONS = {
-    "default_to_large": {"source": "default", "target": "large"},
-    "large_to_default": {"source": "large", "target": "default"},
+    "small_to_large": {"source": "small", "target": "large"},
+    "large_to_small": {"source": "large", "target": "small"},
 }
 
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     keep_output = False  # only relevant if running this file directly, bash script always saves the output
 
     parser = ArgumentParser()
-    parser.add_argument("--size", type=str, default="default")  # "default" or "large"
+    parser.add_argument("--size", type=str, default="small")  # "small" or "large"
     parser.add_argument("--direction", type=str, choices=sorted(DIRECTIONS), required=True,
                         help="Transfer direction; determines the source and target cars.")
     parser.add_argument("--phase", type=str, choices=["source", "target"], required=True,
@@ -115,14 +115,14 @@ if __name__ == "__main__":
         )
 
     # select the car parameters
-    if args.size == "default":
-        from race_car.utils.config import get_default_car_params_tracking
-        car_params = get_default_car_params_tracking()
+    if args.size == "small":
+        from race_car.utils.config import get_small_car_params_tracking
+        car_params = get_small_car_params_tracking()
     elif args.size == "large":
         from race_car.utils.config import get_large_car_params_tracking
         car_params = get_large_car_params_tracking()
     else:
-        raise ValueError("Please specify the car size with --size (e.g. --size default)")
+        raise ValueError("Please specify the car size with --size (e.g. --size small)")
 
     # other settings
     tags = ["sac_zop_transfer", args.direction, args.size, "dimensionless" if args.dimensionless else "dimensional"]

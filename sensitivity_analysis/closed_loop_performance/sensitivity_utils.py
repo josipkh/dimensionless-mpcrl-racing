@@ -97,11 +97,11 @@ def create_one_step_sensitivity_function(model: AcadosModel, dt: float) -> ca.Fu
 
 
 if __name__ == "__main__":
-    from race_car.utils.config import get_default_car_params, get_large_car_params
+    from race_car.utils.config import get_small_car_params, get_large_car_params
     from race_car.acados_ocp import export_ocp
 
-    print("Creating solvers with default parameters...")
-    ocp_small = export_ocp(car_params=get_default_car_params(), dimensionless=True)
+    print("Creating solvers with small-car parameters...")
+    ocp_small = export_ocp(car_params=get_small_car_params(), dimensionless=True)
     ocp_solver_small, sensitivity_solver_small = create_solvers(ocp_small)
 
     print("Creating solvers with similar parameters...")
