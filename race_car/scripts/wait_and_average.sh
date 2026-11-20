@@ -57,13 +57,14 @@ sessions_running() {
     tmux ls 2>/dev/null | grep -F "_${TIMESTAMP}" | grep -v '^averager_'
 }
 
-# Timestamp folders are the parents of the formulation folders, which are the
-# parents of the seed_* folders. De-duplicated, so a folder holding several
-# timestamps yields each of them once and a single timestamp folder yields
-# itself. average_results.sh then averages dimensional / dimensionless
-# separately for each of them.
+# Results folders are the parents of the formulation folders, which are the
+# parents of the seed_* folders. For a single-direction batch that is the
+# timestamp folder; for a both-direction batch it is the direction subfolder.
+# De-duplicated, so a date folder yields one entry per batch/direction. average_results.sh then
+# averages dimensional / dimensionless separately for each of them.
+# maxdepth 4 also covers both-direction batches when a date folder is passed in.
 timestamp_folders() {
-    find "$RESULTS_FOLDER" -maxdepth 3 -type d -name 'seed_*' -printf '%h\n' 2>/dev/null \
+    find "$RESULTS_FOLDER" -maxdepth 4 -type d -name 'seed_*' -printf '%h\n' 2>/dev/null \
         | sort -u \
         | while IFS= read -r formulation; do dirname "$formulation"; done \
         | sort -u

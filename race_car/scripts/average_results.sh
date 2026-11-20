@@ -1,6 +1,8 @@
 #!/bin/bash
 # Average the TF results of every formulation folder inside <results_folder>
 # (requires https://github.com/janosh/tensorboard-reducer).
+# Both-direction batch roots (<root>/<direction>/<formulation>/seed_*) are handled
+# by recursing into their direction subfolders.
 #
 # For each immediate subfolder that holds per-seed runs (seed_*), tb-reducer
 # writes the mean/std/min/max across the seeds into that same folder. If a
@@ -15,6 +17,36 @@ TOP_FOLDER="${1%/}"
 if [ ! -d "$TOP_FOLDER" ]; then
     echo "Error: Folder '$TOP_FOLDER' does not exist."
     exit 1
+fi
+
+# Two layouts are supported:
+#   <folder>/<formulation>/seed_*                 (single direction)
+#   <folder>/<direction>/<formulation>/seed_*     (both directions)
+# If there are no formulation children with seed_* here, recurse into the
+# subfolders so a batch root (or a date folder) can be passed directly.
+has_seed_children=false
+for SUBFOLDER in "$TOP_FOLDER"/*; do
+    [ -d "$SUBFOLDER" ] || continue
+    if compgen -G "$SUBFOLDER/seed_*" > /dev/null; then
+        has_seed_children=true
+        break
+    fi
+done
+
+if [ "$has_seed_children" = false ]; then
+    SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+    nested=0
+    rc=0
+    for SUBFOLDER in "$TOP_FOLDER"/*; do
+        [ -d "$SUBFOLDER" ] || continue
+        nested=$((nested + 1))
+        "$SELF" "$SUBFOLDER" || rc=$?
+    done
+    if [ "$nested" -eq 0 ]; then
+        echo "Error: no folder with per-seed runs (seed_*) found in '$TOP_FOLDER'."
+        exit 1
+    fi
+    exit "$rc"
 fi
 
 FAILURE_LOG="AVERAGE_FAILED.log"

@@ -18,6 +18,12 @@ from race_car.utils.log_utils import tee_logging
 from race_car.utils.config import get_default_car_params_tracking, get_large_car_params_tracking
 
 
+DIRECTIONS = {
+    "default_to_large": {"source": "default", "target": "large"},
+    "large_to_default": {"source": "large", "target": "default"},
+}
+
+
 def create_cfg(seed: int, train_steps: int) -> SacZopTrainerConfig:
     # ---- Configuration ----
     cfg = SacZopTrainerConfig()
@@ -83,9 +89,15 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--size", type=str, default="default")  # "default" or "large"
+    parser.add_argument("--direction", type=str, choices=sorted(DIRECTIONS), required=True,
+                        help="Transfer direction; determines the source and target cars.")
+    parser.add_argument("--phase", type=str, choices=["source", "target"], required=True,
+                        help="Which half of the transfer chain this run is.")
     parser.add_argument("--dimensionless", action='store_true')  # defaults to False, call with "--dimensionless" to set to True
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--timestamp", type=str, default=None)
+    parser.add_argument("--run_root", type=str, default=None,
+                        help="Explicit shared output root for both phases of a chain (used by batch runs).")
     parser.add_argument("--train_steps", type=int, default=1)
     parser.add_argument(
         "--dtype",
@@ -94,6 +106,13 @@ if __name__ == "__main__":
         help="Floating point precision for torch tensors (default: float32).",
     )
     args = parser.parse_args()
+
+    expected_size = DIRECTIONS[args.direction][args.phase]
+    if args.size != expected_size:
+        parser.error(
+            f"--size {args.size!r} is inconsistent with --direction {args.direction!r} "
+            f"and --phase {args.phase!r} (expected {expected_size!r})"
+        )
 
     # select the car parameters
     if args.size == "default":
@@ -106,11 +125,15 @@ if __name__ == "__main__":
         raise ValueError("Please specify the car size with --size (e.g. --size default)")
 
     # other settings
-    tags = ["sac_zop_transfer", args.size, "dimensionless" if args.dimensionless else "dimensional"]
-    if args.timestamp:
+    tags = ["sac_zop_transfer", args.direction, args.size, "dimensionless" if args.dimensionless else "dimensional"]
+    formulation = "dimensionless" if args.dimensionless else "dimensional"
+    if args.run_root:
+        # Paired batches: both phases write into the same per-direction subfolder.
+        output_path = Path(args.run_root) / formulation / f"seed_{args.seed}"
+    elif args.timestamp:
         dt = datetime.strptime(args.timestamp, "%Y%m%d_%H%M%S")
         timestamp_formatted = dt.strftime("%Y_%m_%d/%H_%M_%S")
-        output_path = f"output/{timestamp_formatted}_sac_zop_transfer/{'dimensionless' if args.dimensionless else 'dimensional'}/seed_{args.seed}"
+        output_path = f"output/{timestamp_formatted}_sac_zop_transfer_{args.direction}/{formulation}/seed_{args.seed}"
         output_path = Path(output_path)
     else:
         output_path = default_output_path(args.seed, tags=tags) if keep_output else Path(mkdtemp())
@@ -120,7 +143,7 @@ if __name__ == "__main__":
 
     with tee_logging(output_path):
         t_start = time.monotonic()
-        print(f"Running SAC-ZOP with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}, dtype={args.dtype}")
+        print(f"Running SAC-ZOP [{args.phase} of {args.direction}] with the {args.size} car, dimensionless={args.dimensionless}, seed={args.seed}, dtype={args.dtype}")
         cfg = create_cfg(seed=args.seed, train_steps=args.train_steps)
         train_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=None)
         val_env = RaceCarEnv(car_params=car_params, dimensionless=args.dimensionless, mpc_car_params=car_params, render_mode=cfg.val_render_mode)
