@@ -133,7 +133,7 @@ for DIRECTION in "${DIRECTIONS[@]}"; do
         EXTRA_ARGS="${FORMULATIONS[$FORMULATION]}"
 
         for SEED in $(seq 0 4); do
-            SESSION_NAME="${FORMULATION}_${DIRECTION}_seed${SEED}_${TIMESTAMP}"
+            SESSION_NAME="${TIMESTAMP}_${DIRECTION}_${FORMULATION}_seed${SEED}"
 
             CMD_SOURCE="$SCRIPT --size $SOURCE --direction $DIRECTION --phase source $EXTRA_ARGS --seed $SEED --timestamp $TIMESTAMP --run_root $RUN_ROOT --train_steps $SOURCE_STEPS"
             CMD_TARGET="$SCRIPT --size $TARGET --direction $DIRECTION --phase target $EXTRA_ARGS --seed $SEED --timestamp $TIMESTAMP --run_root $RUN_ROOT --train_steps $TARGET_STEPS"
@@ -150,7 +150,7 @@ done
 # mirrors the one built by run_sac_zop_transfer.py from the timestamp.
 if [ "${AUTO_AVERAGE:-1}" = "1" ]; then
     OUTPUT_FOLDER="$BATCH_ROOT"
-    WATCHER_SESSION="averager_${TIMESTAMP}"
+    WATCHER_SESSION="${TIMESTAMP}_averager"
     echo ""
     echo "Starting watcher session: $WATCHER_SESSION"
     echo "  Will average $OUTPUT_FOLDER once all sessions finish."

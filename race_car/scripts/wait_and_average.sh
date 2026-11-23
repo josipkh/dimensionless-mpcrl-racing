@@ -33,7 +33,7 @@
 #
 # Examples:
 #   wait_and_average.sh 20261111_124035 output/2026_11_11/12_40_35_sac_zop_transfer
-#   wait_and_average.sh 20261111_124035 output/2026_11_11 30 averager_20261111_124035
+#   wait_and_average.sh 20261111_124035 output/2026_11_11 30 20261111_124035_averager
 
 set -u
 
@@ -51,10 +51,12 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AVERAGE_SCRIPT="$SCRIPT_DIR/average_results.sh"
 
-# Training sessions are named "<...>_<TIMESTAMP>". This watcher is named
-# "averager_<TIMESTAMP>", so exclude it from the running-session check.
+# Training sessions contain the timestamp (as a suffix in older batches and as
+# a prefix in newer ones). The watcher is named "<TIMESTAMP>_averager"; exclude
+# it and any legacy "averager_<TIMESTAMP>" watchers from the running check.
 sessions_running() {
-    tmux ls 2>/dev/null | grep -F "_${TIMESTAMP}" | grep -v '^averager_'
+    local self="${SELF_SESSION:-${TIMESTAMP}_averager}"
+    tmux ls 2>/dev/null | grep -F "$TIMESTAMP" | grep -v "^${self}:" | grep -v '^averager_' || true
 }
 
 # Results folders are the parents of the formulation folders, which are the

@@ -30,7 +30,7 @@ done
 # mirrors the one built by run_sac_zop.py from the timestamp.
 if [ "${AUTO_AVERAGE:-1}" = "1" ]; then
     OUTPUT_FOLDER="output/${TIMESTAMP:0:4}_${TIMESTAMP:4:2}_${TIMESTAMP:6:2}/${TIMESTAMP:9:2}_${TIMESTAMP:11:2}_${TIMESTAMP:13:2}_sac_zop"
-    WATCHER_SESSION="averager_${TIMESTAMP}"
+    WATCHER_SESSION="${TIMESTAMP}_averager"
     echo ""
     echo "Starting watcher session: $WATCHER_SESSION"
     echo "  Will average $OUTPUT_FOLDER once all sessions finish."

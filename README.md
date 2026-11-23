@@ -81,7 +81,7 @@ the timestamp-based path when `--run_root` is omitted.
 Average the per-seed TensorBoard logs afterwards with
 `race_car/scripts/average_results.sh <results-folder>`. A batch root can be
 passed directly — the script recurses into its direction subfolders. This is
-also done automatically: each `run_all_*` script launches an extra `averager_<timestamp>`
+also done automatically: each `run_all_*` script launches an extra `<timestamp>_averager`
 tmux session that waits for the whole batch to finish and then averages the
 results. The seeds of `dimensional` and `dimensionless` are always averaged
 separately, and every timestamp folder under the given results folder is handled
