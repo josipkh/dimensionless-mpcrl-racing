@@ -161,7 +161,11 @@ def get_small_car_params() -> CarParams:
 
 def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[AcadosParameter, ...]:
     """Create a list of leap-c parameters (learnable cost weights and non-learnable progress reference)."""
-    from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices
+    from race_car.utils.scaling import (
+        canonicalize_dimensionless,
+        get_cost_matrices,
+        get_transformation_matrices,
+    )
     # TODO: remove fixed parameters
     cost_min_small = 1e-5  # lower limit on the individual weights (for the small car)
     cost_max_small = 1e+4  # upper limit on the individual weights (for the small car)
@@ -183,11 +187,11 @@ def create_acados_params(car_params: CarParams, dimensionless: bool) -> tuple[Ac
         Q, R, Qe = get_cost_matrices(car_params)
         Mx, Mu, _ = get_transformation_matrices(car_params)
         M = Mx.T @ Q @ Mx
-        q_diag_log = np.log10(M.diagonal())
+        q_diag_log = canonicalize_dimensionless(np.log10(M.diagonal()))
         M = Mu.T @ R @ Mu
-        r_diag_log = np.log10(M.diagonal())
+        r_diag_log = canonicalize_dimensionless(np.log10(M.diagonal()))
         M = Mx.T @ Qe @ Mx
-        qe_diag_log = np.log10(M.diagonal())
+        qe_diag_log = canonicalize_dimensionless(np.log10(M.diagonal()))
 
         # adjust the bounds as well
         qx_diag_min_log = np.log10(Mx.diagonal()[:nx] ** 2 * qx_diag_min)

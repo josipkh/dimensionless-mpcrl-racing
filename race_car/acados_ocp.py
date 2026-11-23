@@ -12,7 +12,12 @@ import casadi as ca
 from race_car.model import car_model_ocp, export_acados_integrator
 from race_car.utils.config import CarParams
 from race_car.utils.plotting import plot_results_track, plot_results_classic, plot_lat_acc
-from race_car.utils.scaling import get_cost_matrices, get_transformation_matrices, get_pi_groups
+from race_car.utils.scaling import (
+    canonicalize_dimensionless,
+    get_cost_matrices,
+    get_transformation_matrices,
+    get_pi_groups,
+)
 from race_car.utils.track import get_track
 from race_car.utils.log_utils import use_acados_temp_dir
 
@@ -161,29 +166,29 @@ def nondimensionalize_ocp(ocp: AcadosOcp, car_params: CarParams) -> AcadosOcp:
     cr3 = car_params.cr3.item()
 
     # scale the time step
-    dt_hat = car_params.dt.item() / Mt.item()
-    ocp.solver_options.tf = dt_hat * ocp.solver_options.N_horizon
+    dt_hat = canonicalize_dimensionless(car_params.dt.item() / Mt.item())
+    ocp.solver_options.tf = canonicalize_dimensionless(dt_hat * ocp.solver_options.N_horizon)
 
     # the prediction model is already dimensionless
 
     # scale the lateral position constraints
-    ocp.constraints.lbx[0] /= l
-    ocp.constraints.ubx[0] /= l
+    ocp.constraints.lbx[0] = canonicalize_dimensionless(ocp.constraints.lbx[0] / l)
+    ocp.constraints.ubx[0] = canonicalize_dimensionless(ocp.constraints.ubx[0] / l)
     if include_terminal_position_constraint:
         ocp.constraints.lbx_e = ocp.constraints.lbx
         ocp.constraints.ubx_e = ocp.constraints.ubx
 
     # scale the input constraints
-    ocp.constraints.lbu *= l * cr3
-    ocp.constraints.ubu *= l * cr3
+    ocp.constraints.lbu = canonicalize_dimensionless(ocp.constraints.lbu * l * cr3)
+    ocp.constraints.ubu = canonicalize_dimensionless(ocp.constraints.ubu * l * cr3)
 
     # scale the nonlinear constraint expressions
     acc_scale = 1 / (l * cr3**2)
-    ocp.constraints.lh /=  acc_scale
-    ocp.constraints.uh /=  acc_scale
+    ocp.constraints.lh = canonicalize_dimensionless(ocp.constraints.lh / acc_scale)
+    ocp.constraints.uh = canonicalize_dimensionless(ocp.constraints.uh / acc_scale)
     if include_terminal_acc_constraint:
-        ocp.constraints.lh_e /=  acc_scale
-        ocp.constraints.uh_e /=  acc_scale
+        ocp.constraints.lh_e = canonicalize_dimensionless(ocp.constraints.lh_e / acc_scale)
+        ocp.constraints.uh_e = canonicalize_dimensionless(ocp.constraints.uh_e / acc_scale)
 
     # scale the cost matrices
     ocp.cost.W_0 = Mu.T @ ocp.cost.W_0 @ Mu
@@ -203,10 +208,10 @@ def nondimensionalize_ocp(ocp: AcadosOcp, car_params: CarParams) -> AcadosOcp:
         if include_terminal_acc_constraint:
             slack_scale_e = np.append(slack_scale_e, acc_scale * np.ones(ocp.constraints.lh.shape[0]))
 
-    ocp.cost.zl = ocp.cost.zu = ocp.cost.zl * slack_scale
-    ocp.cost.Zl = ocp.cost.Zu = ocp.cost.Zl * slack_scale**2
-    ocp.cost.zl_e = ocp.cost.zu_e = ocp.cost.zl_e * slack_scale_e
-    ocp.cost.Zl_e = ocp.cost.Zu_e = ocp.cost.Zl_e * slack_scale_e**2
+    ocp.cost.zl = ocp.cost.zu = canonicalize_dimensionless(ocp.cost.zl * slack_scale)
+    ocp.cost.Zl = ocp.cost.Zu = canonicalize_dimensionless(ocp.cost.Zl * slack_scale**2)
+    ocp.cost.zl_e = ocp.cost.zu_e = canonicalize_dimensionless(ocp.cost.zl_e * slack_scale_e)
+    ocp.cost.Zl_e = ocp.cost.Zu_e = canonicalize_dimensionless(ocp.cost.Zl_e * slack_scale_e**2)
 
     # the initial state can remain unchanged, will be replaced anyway
 

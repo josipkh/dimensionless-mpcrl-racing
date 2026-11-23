@@ -102,6 +102,21 @@ def get_similar_car_params(
     return new_params
 
 
+def canonicalize_dimensionless(value: float | np.ndarray) -> float | np.ndarray:
+    """Round dimensionless constants to 15 significant digits.
+
+    Dynamically similar cars produce the same dimensionless parameters only up to
+    floating-point roundoff (e.g. 0.37509377344336087 vs 0.3750937734433608).
+    Fifteen digits is enough to retain the intended float64 value while collapsing
+    that roundoff, making the generated acados C code identical. This matters
+    because the learning feedback loop amplifies last-bit differences in the
+    generated model, cost, and constraint functions.
+    """
+    arr = np.asarray(value, dtype=np.float64)
+    rounded = np.array([float(f"{x:.15g}") for x in arr.flat]).reshape(arr.shape)
+    return rounded.item() if rounded.ndim == 0 else rounded
+
+
 def get_pi_groups(car_params: CarParams) -> tuple[float | ca.SX, float | ca.SX]:
     """Returns the pi-groups for the race car (symbolic or numeric)."""
     m = car_params.m[0]
@@ -114,7 +129,12 @@ def get_pi_groups(car_params: CarParams) -> tuple[float | ca.SX, float | ca.SX]:
     pi_4 = car_params.cr0[0] * l * cr3**2 / m
     pi_5 = car_params.cr2[0] * l / m
 
-    return np.array([pi_1, pi_2, pi_3, pi_4, pi_5])
+    pi_groups = np.array([pi_1, pi_2, pi_3, pi_4, pi_5])
+
+    if isinstance(pi_groups.flat[0], (ca.SX, ca.MX, ca.DM)):
+        return pi_groups
+
+    return canonicalize_dimensionless(pi_groups)
 
 
 def compare_params(car1: CarParams, car2: CarParams):

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from race_car.model import export_acados_integrator
 from race_car.utils.config import CarParams, get_small_car_params
-from race_car.utils.scaling import get_transformation_matrices
+from race_car.utils.scaling import canonicalize_dimensionless, get_transformation_matrices
 from race_car.utils.track import get_track
 
 
@@ -37,29 +37,31 @@ class RaceCarEnv(gym.Env):
         # integrator for simulating the dynamics (always dimensional)
         self.integrator = export_acados_integrator(car_params=car_params, dimensionless=False)
 
-        # state and action bounds
-        obs_ub = np.array([
+        # state and action bounds (pre-margin values, kept in float64 so the
+        # dimensionless scaling below can happen before the final float32 cast)
+        obs_ub_vals = [
             self.s_max,  # [m]
             car_params.n_max.item(),  # [m]
             np.pi/2,  # [rad] alpha max (heading error can be at most 90 degrees, otherwise the car would be driving backwards)
             car_params.v_max.item(),
             car_params.D_max.item(),
             car_params.delta_max.item()
-        ], dtype=np.float32)
-        obs_lb = np.array([
+        ]
+        obs_lb_vals = [
             -0.1 * self.s_max,
             car_params.n_min.item(),
             -np.pi/2,
             -0.1 * car_params.v_max.item(),
             car_params.D_min.item(),
             car_params.delta_min.item()
-        ], dtype=np.float32)
-        # large_number = 1e3  # vehicle states unbounded for now (going offroad is acceptable during learning)
-        # state_bounds = large_number * np.ones((self.nx,), dtype=np.float32)  # just the original states
-        # obs_ub = np.concatenate(( state_bounds, np.array([car_params.D_max.item(), car_params.delta_max.item()], dtype=np.float32)))
-        # obs_lb = np.concatenate((-state_bounds, np.array([car_params.D_min.item(), car_params.delta_min.item()], dtype=np.float32)))
-        act_ub = np.array([car_params.dD_max.item(), car_params.ddelta_max.item()], dtype=np.float32)
-        act_lb = np.array([car_params.dD_min.item(), car_params.ddelta_min.item()], dtype=np.float32)
+        ]
+        act_ub_vals = [car_params.dD_max.item(), car_params.ddelta_max.item()]
+        act_lb_vals = [car_params.dD_min.item(), car_params.ddelta_min.item()]
+
+        obs_ub = np.array(obs_ub_vals, dtype=np.float32)
+        obs_lb = np.array(obs_lb_vals, dtype=np.float32)
+        act_ub = np.array(act_ub_vals, dtype=np.float32)
+        act_lb = np.array(act_lb_vals, dtype=np.float32)
 
         # add a 5% margin to the bounds (prevents episode truncation due to numerical issues)
         obs_ub *= 1.05
@@ -73,11 +75,13 @@ class RaceCarEnv(gym.Env):
             Ms_inv = np.linalg.inv(Ms)  # for the states and absolute control inputs
             Ma_inv = np.linalg.inv(Ma)  # for the control input rates
 
-            # make the bounds dimensionless
-            obs_ub = Ms_inv @ obs_ub
-            obs_lb = Ms_inv @ obs_lb
-            act_ub = Ma_inv @ act_ub
-            act_lb = Ma_inv @ act_lb
+            # Scale in float64, then cast once. Rounding the physical bounds to
+            # float32 first makes dynamically similar cars differ by one ULP,
+            # which changes observation normalization and learning updates.
+            obs_ub = (Ms_inv @ (np.array(obs_ub_vals, dtype=np.float64) * 1.05)).astype(np.float32)
+            obs_lb = (Ms_inv @ (np.array(obs_lb_vals, dtype=np.float64) * 1.05)).astype(np.float32)
+            act_ub = (Ma_inv @ (np.array(act_ub_vals, dtype=np.float64) * 1.05)).astype(np.float32)
+            act_lb = (Ma_inv @ (np.array(act_lb_vals, dtype=np.float64) * 1.05)).astype(np.float32)
 
             # define helper functions for scaling (vehicle states, absolute control inputs, control input rates)
             self.dim2nondim_s = lambda s: Ms_inv[:self.nx, :self.nx] @ s
@@ -88,6 +92,12 @@ class RaceCarEnv(gym.Env):
             self.nondim2dim_da = lambda da: Ma @ da
 
         self.time_scale = get_transformation_matrices(mpc_car_params)[2].item()  # for scaling the time in the reward
+        if dimensionless:
+            # Canonicalize the dimensionless constants used by the reward. Computing
+            # dt / time_scale from the physical parameters gives last-bit differences
+            # between otherwise identical cars, which the learner amplifies.
+            self.dt_hat = canonicalize_dimensionless(self.dt / self.time_scale)
+            self.s_max_dimless = canonicalize_dimensionless(self.s_max / mpc_car_params.l.item())
 
         self.action_space = gym.spaces.Box(np.float32(act_lb), np.float32(act_ub))  # control rates
         self.observation_space = gym.spaces.Box(np.float32(obs_lb), np.float32(obs_ub))  # extended state
@@ -118,10 +128,10 @@ class RaceCarEnv(gym.Env):
             raise RuntimeError("Call reset before using the step method.")
         
         # assert self.action_space.contains(np.array(action, dtype=np.float32)), "Control rate is out of bounds"
-        action_dimensional = self.nondim2dim_da(action) if self.dimensionless else action
-
-        # MPC outputs the control rate, integrate
-        u = self.previous_action + self.dt * action_dimensional
+        if self.dimensionless:
+            u = self.previous_action + self.dt_hat * np.asarray(action, dtype=np.float64)
+        else:
+            u = self.previous_action + self.dt * action
         # assert self.input_space.contains(np.array(u, dtype=np.float32)), "Control input is out of bounds"
         u_clipped = False
         if not self.input_space.contains(np.array(u, dtype=np.float32)):
@@ -137,14 +147,23 @@ class RaceCarEnv(gym.Env):
         self.previous_action = u  # this should always be dimensional
         self.total_time += self.dt
 
-        obs = self.dim2nondim_s(self.s) if self.dimensionless else self.s
+        obs_s = self.dim2nondim_s(self.s) if self.dimensionless else self.s
 
         # concatenate the control input into observations
-        obs = np.concatenate([obs, self.dim2nondim_a(u) if self.dimensionless else u])
+        obs = np.concatenate([obs_s, self.dim2nondim_a(u) if self.dimensionless else u])
 
         # calculate the reward (combination of relative progress and time, dimensionless)
         reward_scaling_factor = 0.1  # adjust the magnitude of the reward to prevent numerical issues during learning
-        reward = reward_scaling_factor * (self.s[0] / self.s_max - 50 * self.dt / self.time_scale)
+        if self.dimensionless:
+            # Use the float32 dimensionless state exposed to the agent and the
+            # canonical dimensionless track length/time step; the raw physical
+            # division differs by a few ULP between dynamically similar cars.
+            progress = np.float32(obs_s[0]) / self.s_max_dimless
+            time_penalty = 50 * self.dt_hat
+        else:
+            progress = self.s[0] / self.s_max
+            time_penalty = 50 * self.dt / self.time_scale
+        reward = reward_scaling_factor * (progress - time_penalty)
         if u_clipped:
             reward *= 1.1  # 10 % increase in (always negative) reward if the action was clipped
 
