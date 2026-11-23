@@ -1,16 +1,28 @@
 """Utility functions for plotting."""
-import matplotlib
+import glob
+import json
 import os
-if not "DISPLAY" in os.environ:
+from argparse import ArgumentParser
+from collections.abc import Sequence
+from pathlib import Path
+
+import matplotlib
+if "DISPLAY" not in os.environ:
     matplotlib.use('Agg')  # Non-interactive backend
 
 import casadi as ca
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
+from matplotlib.lines import Line2D
 
 from race_car.utils.config import CarParams, get_small_car_params
 from race_car.utils.track import frenet2global, get_track, global2frenet
+
+
+TRANSFER_FORMULATIONS = ("dimensional", "dimensionless")
+TRANSFER_COLORS = ("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b")
+TRANSFER_PLOT_NAME = "plot_transfer.pdf"
 
 
 def _savefig(output_path: str | os.PathLike) -> None:
@@ -226,30 +238,320 @@ def calculate_acc(x: np.ndarray, car_params: CarParams) -> np.ndarray:
     return alat
 
 
+def _load_transfer_manifest(folder: str | Path) -> dict | None:
+    """Return the transfer.json of a run/batch folder, if it has one."""
+    path = Path(folder) / "transfer.json"
+    return json.loads(path.read_text()) if path.is_file() else None
+
+
+def _transfer_label(folder: str | Path) -> str:
+    """Read the transfer direction from a run's manifest (or its legacy log)."""
+    folder = Path(folder)
+    manifest = _load_transfer_manifest(folder)
+    if manifest and "label" in manifest:
+        return manifest["label"]
+
+    legacy_log = folder / "dimensional" / "seed_0" / "output.log"
+    if legacy_log.is_file():
+        lines = legacy_log.read_text().splitlines()
+        if lines:
+            return "large -> small" if "large car" in lines[0] else "small -> large"
+
+    raise ValueError(
+        f"Cannot determine transfer direction for {folder}: no transfer.json or output.log"
+    )
+
+
+def _extract_tensorboard_scalar(folder: str | Path) -> tuple[list[int], list[float]] | None:
+    """Extract steps and values of the plotted scalar from a reduced TF folder."""
+    from tensorboard.backend.event_processing import event_accumulator
+
+    event_files = sorted(glob.glob(str(Path(folder) / "events.out.tfevents.*")))
+    if not event_files:
+        print(f"[plot_transfer] no TensorBoard files found in {folder}")
+        return None, None
+
+    event_file = event_files[0]
+    ea = event_accumulator.EventAccumulator(
+        event_file,
+        size_guidance={event_accumulator.SCALARS: 0},
+    )
+    ea.Reload()
+
+    tags = ea.Tags().get("scalars", [])
+    if not tags:
+        print(f"[plot_transfer] no scalar metrics found in {event_file}")
+        return None, None
+
+    tag = tags[1] if len(tags) > 1 else tags[0]
+    events = ea.Scalars(tag)
+    return [event.step for event in events], [event.value for event in events]
+
+
+def _collect_transfer_curves(
+    folder: str | Path,
+    label: str | None = None,
+    direction_key: str | None = None,
+    scale_change: int | None = None,
+) -> list[dict]:
+    """Collect the two formulation curves of one direction from a run folder."""
+    folder = Path(folder)
+    manifest = _load_transfer_manifest(folder)
+
+    manifest_direction = None
+    manifest_label = None
+    manifest_scale = None
+    if manifest and "direction" in manifest and "directions" not in manifest:
+        manifest_direction = manifest["direction"]
+        manifest_label = manifest.get("label")
+        manifest_scale = manifest.get("source_steps")
+
+    curves = []
+    for form in TRANSFER_FORMULATIONS:
+        path = folder / form / "mean"
+        if not path.is_dir():
+            print(f"[plot_transfer] {path} not found, continuing...")
+            continue
+
+        if direction_key is None:
+            direction_key = manifest_direction or label or _transfer_label(folder)
+        if label is None:
+            label = manifest_label or direction_key or _transfer_label(folder)
+        if scale_change is None:
+            scale_change = manifest_scale
+
+        steps, values = _extract_tensorboard_scalar(path)
+        if steps is None or values is None:
+            continue
+        if values[0] > 1:
+            values = [value * 0.062 for value in values]
+
+        curves.append({
+            "path": str(path),
+            "key": direction_key,
+            "label": label,
+            "form": form,
+            "steps": steps,
+            "values": values,
+            # Legacy runs have no manifest: fall back to the midpoint assumption.
+            "scale_change": scale_change if scale_change is not None else steps[-1] // 2,
+        })
+    return curves
+
+
+def _collect_batch_transfer_curves(root: str | Path) -> list[dict] | None:
+    """Collect all direction x formulation curves from a batch root."""
+    manifest = _load_transfer_manifest(root)
+    if not manifest or "directions" not in manifest:
+        return None
+
+    curves = []
+    for direction, info in manifest["directions"].items():
+        direction_manifest = _load_transfer_manifest(Path(root) / direction) or {}
+        label = info.get("label") or direction_manifest.get("label") or direction
+        scale_change = info.get("source_steps") or direction_manifest.get("source_steps")
+        curves.extend(
+            _collect_transfer_curves(
+                Path(root) / direction,
+                label=label,
+                direction_key=direction,
+                scale_change=scale_change,
+            )
+        )
+    return curves
+
+
+def collect_transfer_curves(runs: Sequence[str | Path]) -> list[dict]:
+    """Accept one batch folder, one single run, or two legacy run folders."""
+    runs = [Path(run) for run in runs]
+    if len(runs) == 1:
+        batch_curves = _collect_batch_transfer_curves(runs[0])
+        return batch_curves if batch_curves is not None else _collect_transfer_curves(runs[0])
+    if len(runs) == 2:
+        return _collect_transfer_curves(runs[0]) + _collect_transfer_curves(runs[1])
+    raise ValueError("Provide one batch folder or two run folders")
+
+
+def find_transfer_batch_roots(folder: str | Path) -> list[Path]:
+    """Find transfer batch roots under a batch root, a date folder, or a run folder."""
+    folder = Path(folder)
+    manifest = _load_transfer_manifest(folder)
+    if manifest and "directions" in manifest:
+        return [folder]
+
+    nested = []
+    for child in sorted(folder.iterdir()):
+        if not child.is_dir():
+            continue
+        child_manifest = _load_transfer_manifest(child)
+        if child_manifest and "directions" in child_manifest:
+            nested.append(child)
+    return nested or [folder]
+
+
+def plot_transfer_curves(
+    curves: list[dict],
+    output_path: str | Path,
+    joint_plot: bool = True,
+) -> Path:
+    """Plot direction x formulation curves; colour = direction, linestyle = formulation."""
+    if not curves:
+        raise ValueError("No transfer curves to plot")
+
+    plt.rcParams.update({
+        "font.size": 12,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "legend.fontsize": 11,
+    })
+
+    colors = {}
+    for curve in curves:
+        if curve["key"] not in colors:
+            colors[curve["key"]] = TRANSFER_COLORS[len(colors) % len(TRANSFER_COLORS)]
+        print(f"[plot_transfer] loaded data from {curve['path']}")
+
+    min_x = min(min(curve["steps"]) for curve in curves)
+    max_x = max(max(curve["steps"]) for curve in curves)
+    min_y = min(min(curve["values"]) for curve in curves)
+    max_y = max(max(curve["values"]) for curve in curves)
+
+    y_margin = (max_y - min_y) * 0.05
+    fixed_xlim = (min_x, max_x)
+    fixed_ylim = (min_y - y_margin, max_y + y_margin)
+    scale_markers = sorted({int(curve["scale_change"]) for curve in curves if curve["scale_change"]})
+
+    def draw_annotations(steps, values):
+        for x in scale_markers:
+            plt.axvline(x=x, color="k", lw=1, linestyle="--")
+        y_baseline = -73.775 if values[0] < 0 else 281 * 0.062
+        plt.hlines(y=y_baseline, xmin=0, xmax=steps[-1], color="k", lw=1, linestyle="--")
+        plt.text(x=0, y=y_baseline, s="manual tuning", ha="left", va="bottom", fontsize=11, color="k")
+
+        plt.xlim(fixed_xlim)
+        plt.ylim(fixed_ylim)
+        for x in scale_markers:
+            plt.text(x=x, y=fixed_ylim[1] * 0.975, s=" scale change", ha="left", va="top",
+                     fontsize=11, color="k")
+        plt.xlabel("Training steps")
+        plt.ylabel("Validation score" if values[0] < 0 else "Dimensionless racing time")
+        plt.grid(True, linestyle=":", alpha=0.6)
+        plt.tight_layout()
+
+    direction_handles = []
+    seen = set()
+    for curve in curves:
+        if curve["key"] not in seen:
+            seen.add(curve["key"])
+            direction_handles.append(
+                Line2D([0], [0], color=colors[curve["key"]], lw=2, label=curve["label"])
+            )
+
+    formulation_handles = [
+        Line2D([0], [0], color="k", lw=2, linestyle="-", label="dimensionless"),
+        Line2D([0], [0], color="k", lw=2, linestyle="--", label="dimensional"),
+    ]
+
+    output_path = Path(output_path)
+    base_output, ext = os.path.splitext(output_path)
+
+    if not joint_plot:
+        plt.figure(figsize=(10, 6))
+        dimensional = [curve for curve in curves if curve["form"] == "dimensional"]
+        for curve in dimensional:
+            plt.plot(curve["steps"], curve["values"], color=colors[curve["key"]],
+                     linestyle="--", linewidth=2.5, alpha=1.0)
+
+        if dimensional:
+            last = dimensional[-1]
+            draw_annotations(last["steps"], last["values"])
+            plt.legend(handles=direction_handles, title="Transfer type", loc="upper left")
+            dim_path = Path(f"{base_output}_dimensional{ext}")
+            _savefig(dim_path)
+            plt.close()
+            print(f"[plot_transfer] saved the dimensional plot to {dim_path}")
+
+    plt.figure(figsize=(10, 6))
+    for curve in curves:
+        linestyle = "--" if curve["form"] == "dimensional" else "-"
+        alpha = 0.3 if not joint_plot and curve["form"] == "dimensional" else 1.0
+        plt.plot(curve["steps"], curve["values"], color=colors[curve["key"]],
+                 linestyle=linestyle, linewidth=2.5, alpha=alpha)
+
+    draw_annotations(curves[-1]["steps"], curves[-1]["values"])
+    first_legend = plt.legend(handles=direction_handles, title="Transfer type", loc="upper left")
+    plt.gca().add_artist(first_legend)
+    plt.legend(handles=formulation_handles, title="Formulation", loc="upper left",
+               bbox_to_anchor=(0.22, 1.0))
+
+    final_path = output_path if joint_plot else Path(f"{base_output}_combined{ext}")
+    _savefig(final_path)
+    plt.close()
+    print(f"[plot_transfer] saved the combined plot to {final_path}")
+    return final_path
+
+
+def plot_transfer(runs: Sequence[str | Path], output_path: str | Path | None = None) -> Path:
+    """Plot one batch folder or two legacy run folders and return the saved PDF path."""
+    curves = collect_transfer_curves(runs)
+    if not curves:
+        raise RuntimeError("No TensorBoard data found in the given folder(s)")
+
+    runs = [Path(run) for run in runs]
+    out = Path(output_path) if output_path is not None else runs[0] / TRANSFER_PLOT_NAME
+    for key in dict.fromkeys(curve["key"] for curve in curves):
+        label = next(curve["label"] for curve in curves if curve["key"] == key)
+        print(f"[plot_transfer] {key}: {label}")
+    return plot_transfer_curves(curves, out, joint_plot=True)
+
+
+def plot_transfer_batches(folder: str | Path, output_name: str = TRANSFER_PLOT_NAME) -> list[Path]:
+    """Plot every transfer batch under a batch root, date folder, or run folder."""
+    outputs = []
+    for root in find_transfer_batch_roots(folder):
+        try:
+            outputs.append(plot_transfer([root], output_path=root / output_name))
+        except RuntimeError as exc:
+            print(f"[plot_transfer] {exc}; skipping {root}")
+    return outputs
+
+
 if __name__ == "__main__":
-    from race_car.utils.config import get_large_car_params
+    parser = ArgumentParser(description="Plot transfer batches, or run the local smoke test.")
+    parser.add_argument(
+        "runs", nargs="*", type=Path,
+        help="a batch folder, a date folder, a single run folder, or two legacy run folders",
+    )
+    parser.add_argument(
+        "--output", default=None,
+        help="output PDF path (default: inside each batch folder)",
+    )
+    args = parser.parse_args()
 
-    car_params = get_small_car_params()
-    car_params_sim = get_large_car_params()
+    if args.runs:
+        if len(args.runs) == 1:
+            plot_transfer_batches(args.runs[0], output_name=args.output or TRANSFER_PLOT_NAME)
+        else:
+            plot_transfer(args.runs, output_path=args.output)
+    else:
+        from race_car.utils.config import get_large_car_params
 
-    try:
-        npz_file = np.load("race_car/jkh_test/small_car_results.npz")
-        simX, simU, t = npz_file["simX"], npz_file["simU"], npz_file["t"]
+        car_params = get_small_car_params()
+        car_params_sim = get_large_car_params()
 
-        # test plotting with a partial log
-        # trunc_idx = round(simX.shape[0]/2)
-        # simX = simX[:trunc_idx, :]
-        # simU = simU[:trunc_idx, :]
-        # t = t[:trunc_idx]
+        try:
+            npz_file = np.load("race_car/jkh_test/small_car_results.npz")
+            simX, simU, t = npz_file["simX"], npz_file["simU"], npz_file["t"]
 
-        plot_results_track(simX, car_params, total_time=t[-1])
-        plot_results_classic(simX, simU, t, car_params)
-        plot_lat_acc(simX, t, car_params)
-    except OSError:
-        print("Specified log file could not be loaded, skipping result plots.")
+            plot_results_track(simX, car_params, total_time=t[-1])
+            plot_results_classic(simX, simU, t, car_params)
+            plot_lat_acc(simX, t, car_params)
+        except OSError:
+            print("Specified log file could not be loaded, skipping result plots.")
 
-    if plt.get_fignums():
-        input("Press Enter to continue...")  # keep the plots open
-        plt.close('all')
+        if plt.get_fignums():
+            input("Press Enter to continue...")  # keep the plots open
+            plt.close('all')
 
-    print("ok")
+        print("ok")

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Wait for a batch of tmux training sessions to finish, then average their
-# TensorBoard logs with average_results.sh.
+# TensorBoard logs with average_results.sh and plot the transfer comparison.
 #
 # The run_all_* scripts launch one tmux session per (size x formulation x seed),
 # all named with the same <timestamp>. This watcher polls tmux until no such
@@ -13,6 +13,10 @@
 # called once per timestamp folder. Passing a date folder (which holds several
 # timestamps) therefore averages each timestamp separately instead of mixing
 # its formulations.
+#
+# Once averaging succeeds, race_car.utils.plotting writes plot_transfer.pdf
+# into every transfer batch folder found under <results_folder>. Non-transfer
+# batches are skipped.
 #
 # It is normally started automatically by the run_all_* scripts; it can also be
 # run by hand for a batch that is already in flight.
@@ -49,6 +53,7 @@ if [ -z "$TIMESTAMP" ] || [ -z "$RESULTS_FOLDER" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 AVERAGE_SCRIPT="$SCRIPT_DIR/average_results.sh"
 
 # Training sessions contain the timestamp (as a suffix in older batches and as
@@ -97,6 +102,15 @@ done
 
 if [ "$rc" -eq 0 ]; then
     echo "[wait_and_average] averaging done."
+    echo "[wait_and_average] plotting transfer batches under $RESULTS_FOLDER"
+    PYTHONPATH="$PROJECT_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+        python -m race_car.utils.plotting "$RESULTS_FOLDER" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        echo "[wait_and_average] plotting done."
+    else
+        echo "[wait_and_average] plotting FAILED (exit $rc); leaving this session open."
+        exit "$rc"
+    fi
     if [ -n "$SELF_SESSION" ]; then
         tmux kill-session -t "$SELF_SESSION" 2>/dev/null || true
     fi

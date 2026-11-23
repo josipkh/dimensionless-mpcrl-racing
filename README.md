@@ -95,17 +95,23 @@ race_car/scripts/wait_and_average.sh <timestamp> <results-folder>
 If a reduction fails, `tb-reducer`'s output is saved next to the folders it
 would have written, as `<formulation>/AVERAGE_FAILED.log`, the watcher exits
 non-zero, and its tmux session is left open instead of closing itself. This
-makes a failed averaging easy to spot and to inspect.
+makes a failed averaging easy to spot and to inspect. After a successful
+reduction the watcher also writes `plot_transfer.pdf` into each transfer batch
+folder; non-transfer batches are skipped.
 
 ### Plotting transfer runs
 
-`output/plot_transfer.py` takes a single batch folder, reads the labels from the
-manifests, and plots all four combinations (2 directions × 2 formulations):
-colour marks the direction, linestyle the formulation. Older runs without a
-manifest are inferred from the first line of their `output.log`.
+The plotting logic lives in `race_car/utils/plotting.py` and is run automatically
+by the watcher after averaging. It reads the labels from the manifests and plots
+all four combinations (2 directions × 2 formulations): colour marks the
+direction, linestyle the formulation. Older runs without a manifest are inferred
+from the first line of their `output.log`.
+
+To regenerate a plot by hand, pass a batch folder (or a date folder holding
+several batches). One PDF is saved per batch folder:
 
 ```bash
-python output/plot_transfer.py \
+python -m race_car.utils.plotting \
     output/2026_11_20/13_58_16_sac_zop_transfer
 ```
 
@@ -113,17 +119,21 @@ Two separate run folders can still be passed for older experiments that stored
 each direction in its own folder:
 
 ```bash
-python output/plot_transfer.py \
+python -m race_car.utils.plotting \
     output/2026_11_12/10_19_21_sac_zop_transfer \
-    output/2026_11_12/10_19_23_sac_zop_transfer
+    output/2026_11_12/10_19_23_sac_zop_transfer \
+    --output output/legacy_transfer.pdf
 ```
+
+With no folder argument, the module instead runs the local smoke test that loads
+`race_car/jkh_test/small_car_results.npz` and renders the result plots.
 
 ### Reproducing the 2026_06_12 / 2026_06_13 runs
 
 `output/2026_06_12` (small -> large) and `output/2026_06_13` (large -> small) are
 the reference transfer runs. They predate the direction-tagged folder names, but
 their direction is still recoverable from the first line of any `output.log`
-(that is the legacy fallback in `output/plot_transfer.py`). Their script settings
+(that is the legacy fallback in `race_car/utils/plotting.py`). Their script settings
 are matched by the current scripts: the wide parameter bounds in
 `race_car/utils/config.py`, the 50k/100k source/target budgets, and `--lax-steps`
 in `average_results.sh`.
