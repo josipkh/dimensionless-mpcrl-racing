@@ -2,9 +2,9 @@
 # Wait for a batch of tmux training sessions to finish, then average their
 # TensorBoard logs with average_results.sh and plot the transfer comparison.
 #
-# The run_all_* scripts launch one tmux session per (size x formulation x seed),
-# all named with the same <timestamp>. This watcher polls tmux until no such
-# session is left and then averages the results.
+# The run_all_* scripts launch one tmux session per run, all named with the
+# same <timestamp>. This watcher polls tmux until no such session is left and
+# then averages the results.
 #
 # Averaging is always done separately for the seeds of each formulation
 # ("dimensional" and "dimensionless"), and for every timestamp folder found
@@ -56,9 +56,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 AVERAGE_SCRIPT="$SCRIPT_DIR/average_results.sh"
 
-# Training sessions contain the timestamp (as a suffix in older batches and as
-# a prefix in newer ones). The watcher is named "<TIMESTAMP>_averager"; exclude
-# it and any legacy "averager_<TIMESTAMP>" watchers from the running check.
+# Training session names contain the timestamp. Exclude watcher sessions from
+# the running check.
 sessions_running() {
     local self="${SELF_SESSION:-${TIMESTAMP}_averager}"
     tmux ls 2>/dev/null | grep -F "$TIMESTAMP" | grep -v "^${self}:" | grep -v '^averager_' || true

@@ -29,10 +29,9 @@ on the other (the *target*). Both runs share one output directory, so the target
 run continues from the source checkpoint. Every experiment is repeated for both
 MPC formulations (`dimensional` and `dimensionless`) and seeds `0`-`4`.
 
-The direction is recorded automatically in a `transfer.json` manifest at the
-root of each batch. It lists the direction(s), source/target cars, step budgets,
-formulations, seeds, timestamp and git revision, so results no longer need to be
-matched to a direction by hand.
+Each batch root has a `transfer.json` manifest listing the direction(s),
+source/target cars, step budgets, formulations, seeds, timestamp and git
+revision.
 
 By default both directions run in one batch. The batch folder is
 direction-neutral and holds one subfolder per direction, each with its own
@@ -56,7 +55,7 @@ TRANSFER_DIRECTION=small_to_large race_car/scripts/run_all_sac_zop_transfer.sh
 TRANSFER_DIRECTION=large_to_small race_car/scripts/run_all_sac_zop_transfer.sh
 ```
 
-Explicit single-direction batches keep the old flat layout with a direction-tagged
+Explicit single-direction batches use a flat layout with a direction-tagged
 folder name (`<time>_sac_zop_transfer_<direction>`).
 
 The source car is pretrained for 50k steps and the target car is fine-tuned for
@@ -104,8 +103,8 @@ folder; non-transfer batches are skipped.
 The plotting logic lives in `race_car/utils/plotting.py` and is run automatically
 by the watcher after averaging. It reads the labels from the manifests and plots
 all four combinations (2 directions × 2 formulations): colour marks the
-direction, linestyle the formulation. Older runs without a manifest are inferred
-from the first line of their `output.log`.
+direction, linestyle the formulation. When a manifest is absent, the direction
+is inferred from the first line of `output.log`.
 
 To regenerate a plot by hand, pass a batch folder (or a date folder holding
 several batches). One PDF is saved per batch folder:
@@ -115,14 +114,13 @@ python -m race_car.utils.plotting \
     output/2026_11_20/13_58_16_sac_zop_transfer
 ```
 
-Two separate run folders can still be passed for older experiments that stored
-each direction in its own folder:
+Two separate run folders can also be passed:
 
 ```bash
 python -m race_car.utils.plotting \
     output/2026_11_12/10_19_21_sac_zop_transfer \
     output/2026_11_12/10_19_23_sac_zop_transfer \
-    --output output/legacy_transfer.pdf
+    --output output/transfer_two_runs.pdf
 ```
 
 With no folder argument, the module instead runs the local smoke test that loads
@@ -131,16 +129,13 @@ With no folder argument, the module instead runs the local smoke test that loads
 ### Reproducing the 2026_06_12 / 2026_06_13 runs
 
 `output/2026_06_12` (small -> large) and `output/2026_06_13` (large -> small) are
-the reference transfer runs. They predate the direction-tagged folder names, but
-their direction is still recoverable from the first line of any `output.log`
-(that is the legacy fallback in `race_car/utils/plotting.py`). Their script settings
+the reference transfer runs. Their direction is recovered from the first line of
+any `output.log` by the fallback in `race_car/utils/plotting.py`. Their settings
 are matched by the current scripts: the wide parameter bounds in
 `race_car/utils/config.py`, the 50k/100k source/target budgets, and `--lax-steps`
 in `average_results.sh`.
 
-The `leap-c` revision used for those runs (`5c7fe3c`) has since been rewritten
-and is no longer reachable. The currently pinned `leap-c` (`c8a7e3e`) matches
-those runs on min-max normalisation (applied to `[-1, 1]`) and is trained in
-`float32`. The local `save_p_global=True` flag is only used for debugging and
-does not affect the results, so it is not restored. The remaining known
-difference is that `acados` is at v0.5.5.
+The pinned `leap-c` revision (`c8a7e3e`) matches those runs on min-max
+normalisation (applied to `[-1, 1]`) and uses `float32`. The local
+`save_p_global=True` flag is a debugging option and does not affect the results.
+`acados` is pinned at v0.5.5.

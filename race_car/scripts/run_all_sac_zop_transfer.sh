@@ -9,14 +9,15 @@
 #
 # Both runs of a chain share the same output directory, so the target run continues
 # from the source checkpoint. The source car is pretrained briefly, the target car
-# is fine-tuned longer. The direction is recorded in the output folder name and in
-# a transfer.json manifest next to the results, so no manual bookkeeping is needed.
+# is fine-tuned longer. The direction is recorded in a transfer.json manifest
+# next to the results.
 # The default both-direction batch folder is direction-neutral and contains one
 # subfolder per direction, plus a manifest describing both of them.
 #
 # When every session of the batch has finished, a watcher session averages the
-# per-seed TensorBoard logs (race_car/scripts/average_results.sh). Set
-# AUTO_AVERAGE=0 to skip this.
+# per-seed TensorBoard logs (race_car/scripts/average_results.sh) and plots the
+# transfer comparison (race_car/utils/plotting.py). Set AUTO_AVERAGE=0 to skip
+# both.
 #
 # Usage:
 #   ./race_car/scripts/run_all_sac_zop_transfer.sh                              # both directions
@@ -63,7 +64,7 @@ case "$TRANSFER_DIRECTION" in
         ;;
 esac
 
-# One folder per batch. Explicit single-direction runs keep the old flat layout;
+# One folder per batch. Explicit single-direction runs use a flat layout;
 # the default both-direction batch uses a direction-neutral root with one subfolder per direction.
 BATCH_ROOT="output/${TIMESTAMP:0:4}_${TIMESTAMP:4:2}_${TIMESTAMP:6:2}/${TIMESTAMP:9:2}_${TIMESTAMP:11:2}_${TIMESTAMP:13:2}_${BATCH_SUFFIX}"
 mkdir -p "$BATCH_ROOT"

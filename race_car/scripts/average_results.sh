@@ -84,7 +84,7 @@ do
     failed=$((failed + 1))
   fi
   # seed_* (not *) averages only the actual per-seed runs, so re-running does not
-  # fold the previously written mean/std/min/max folders back into the average
+  # fold the already-reduced mean/std/min/max folders back into the average
   # --handle-dup-steps resolves the situation with two values for the same timestep
   # (occurs when continuing the training with current settings)
   # --lax-steps tolerates the differing step ranges of the source/target transfer runs

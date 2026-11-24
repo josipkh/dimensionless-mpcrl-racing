@@ -245,15 +245,15 @@ def _load_transfer_manifest(folder: str | Path) -> dict | None:
 
 
 def _transfer_label(folder: str | Path) -> str:
-    """Read the transfer direction from a run's manifest (or its legacy log)."""
+    """Read the transfer direction from a run's manifest (or output.log)."""
     folder = Path(folder)
     manifest = _load_transfer_manifest(folder)
     if manifest and "label" in manifest:
         return manifest["label"]
 
-    legacy_log = folder / "dimensional" / "seed_0" / "output.log"
-    if legacy_log.is_file():
-        lines = legacy_log.read_text().splitlines()
+    output_log = folder / "dimensional" / "seed_0" / "output.log"
+    if output_log.is_file():
+        lines = output_log.read_text().splitlines()
         if lines:
             return "large -> small" if "large car" in lines[0] else "small -> large"
 
@@ -333,7 +333,7 @@ def _collect_transfer_curves(
             "form": form,
             "steps": steps,
             "values": values,
-            # Legacy runs have no manifest: fall back to the midpoint assumption.
+            # Without a manifest, fall back to the midpoint assumption.
             "scale_change": scale_change if scale_change is not None else steps[-1] // 2,
         })
     return curves
@@ -362,7 +362,7 @@ def _collect_batch_transfer_curves(root: str | Path) -> list[dict] | None:
 
 
 def collect_transfer_curves(runs: Sequence[str | Path]) -> list[dict]:
-    """Accept one batch folder, one single run, or two legacy run folders."""
+    """Accept one batch folder, one single run folder, or two run folders."""
     runs = [Path(run) for run in runs]
     if len(runs) == 1:
         batch_curves = _collect_batch_transfer_curves(runs[0])
@@ -493,7 +493,7 @@ def plot_transfer_curves(
 
 
 def plot_transfer(runs: Sequence[str | Path], output_path: str | Path | None = None) -> Path:
-    """Plot one batch folder or two legacy run folders and return the saved PDF path."""
+    """Plot one batch folder or two run folders and return the saved PDF path."""
     curves = collect_transfer_curves(runs)
     if not curves:
         raise RuntimeError("No TensorBoard data found in the given folder(s)")
@@ -521,7 +521,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Plot transfer batches, or run the local smoke test.")
     parser.add_argument(
         "runs", nargs="*", type=Path,
-        help="a batch folder, a date folder, a single run folder, or two legacy run folders",
+        help="a batch folder, a date folder, a single run folder, or two run folders",
     )
     parser.add_argument(
         "--output", default=None,
